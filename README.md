@@ -14,7 +14,10 @@ See [docs/spec.md](docs/spec.md) for the full design spec.
 
 ## Status
 
-Pre-implementation. Spec is settled for v1; build hasn't started.
+Core physics module (`js/physics.js`, `js/bands.js`) is implemented and
+covered by `tests/unit-physics.html` (17/17 passing). UI — tabs, the live
+chart, sliders — is not yet built. See [CLAUDE.md](CLAUDE.md) for the
+current-status detail and [docs/spec.md](docs/spec.md) for the full spec.
 
 ## License
 
