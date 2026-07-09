@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Unit tests — antinode/node physics</title>
+</head>
+<body style="font-family: sans-serif; padding: 16px;">
+  <h2 style="font-family:monospace;">DangerNode — unit tests (physics math)</h2>
+  <p style="font-family:monospace; font-size:12px; color:#555; max-width:640px;">
+    Loads the real <code>../index.html</code> in a hidden iframe and calls its
+    exposed <code>window.DN</code> pure functions directly, rather than
+    keeping a separate copy of the math — so these tests can never silently
+    drift out of sync with what's actually shipped.
+  </p>
+  <iframe id="app" style="display:none;"></iframe>
+  <div id="results">Loading…</div>
+
+  <script src="harness.js"></script>
+  <script>
+    document.getElementById('app').src = '../index.html?_t=' + Date.now();
+    document.getElementById('app').addEventListener('load', () => {
+      const DN = document.getElementById('app').contentWindow.DN;
+
+      suite('hwFt / nValue — basic formula');
+      test('hwFt at VF=1 matches the 492/f constant', () => {
+        assert.close(DN.hwFt(4.92, 1), 100, 1e-9);
+      });
+      test('a wire exactly one half-wave long gives n=1 (odd, antinode)', () => {
+        assert.close(DN.nValue(100, 4.92, 1), 1, 1e-9);
+      });
+      test('a wire exactly one full wave long gives n=2 (even, node)', () => {
+        assert.close(DN.nValue(100, 9.84, 1), 2, 1e-9);
+      });
+
+      suite('distanceToNearestEven');
+      test('sits exactly on a node (n=0)', () => {
+        assert.close(DN.distanceToNearestEven(0), 0, 1e-9);
+      });
+      test('sits exactly on an antinode (n=1) — max possible distance', () => {
+        assert.close(DN.distanceToNearestEven(1), 1, 1e-9);
+      });
+      test('sits exactly on a node (n=2)', () => {
+        assert.close(DN.distanceToNearestEven(2), 0, 1e-9);
+      });
+      test('midway case (n=1.5)', () => {
+        assert.close(DN.distanceToNearestEven(1.5), 0.5, 1e-9);
+      });
+
+      suite('classifyDistance — traffic-light thresholds (tolerance=0.07)');
+      test('inside tolerance is danger', () => {
+        assert.equal(DN.classifyDistance(0.03, 0.07), 'danger');
+      });
+      test('between 1x and 2x tolerance is marginal', () => {
+        assert.equal(DN.classifyDistance(0.1, 0.07), 'marginal');
+      });
+      test('beyond 2x tolerance is good', () => {
+        assert.equal(DN.classifyDistance(0.5, 0.07), 'good');
+      });
+      test('boundary at exactly 1x tolerance falls into marginal, not danger', () => {
+        assert.equal(DN.classifyDistance(0.07, 0.07), 'marginal');
+      });
+      test('boundary at exactly 2x tolerance falls into good, not marginal', () => {
+        assert.equal(DN.classifyDistance(0.14, 0.07), 'good');
+      });
+
+      suite('bandVerdict — synthetic bands (VF=1, L=100ft, n=f/4.92)');
+      test('band straddling an even integer is forced danger even if both edges are far from it', () => {
+        // n ranges 1.8 -> 2.2: both edges 0.2 from n=2, well outside tolerance,
+        // but n=2 falls strictly inside the band's frequency range.
+        const band = { name: 'synthetic-straddle', lowMHz: 1.8 * 4.92, highMHz: 2.2 * 4.92 };
+        const v = DN.bandVerdict(100, band, 1, 0.07);
+        assert.close(v.minDist, 0, 1e-9);
+        assert.equal(v.verdict, 'danger');
+      });
+      test('band entirely between nodes, both edges far from even, is good', () => {
+        // n ranges 1.2 -> 1.4: nearest even to both is 2, distances 0.8 and 0.6.
+        const band = { name: 'synthetic-clear', lowMHz: 1.2 * 4.92, highMHz: 1.4 * 4.92 };
+        const v = DN.bandVerdict(100, band, 1, 0.07);
+        assert.close(v.minDist, 0.6, 1e-9);
+        assert.equal(v.verdict, 'good');
+      });
+
+      suite('bandVerdict — realistic case: 68ft EFHW-ish wire, VF=0.95, real BANDS table');
+      test('68ft lands 40m cleanly on an antinode (good) — this is the length it was cut for', () => {
+        const band40 = DN.BANDS.find(b => b.name === '40m');
+        const v = DN.bandVerdict(68, band40, 0.95, 0.07);
+        assert.equal(v.verdict, 'good');
+      });
+      test('68ft lands 20m on the classic 2nd-harmonic current-node gotcha (danger)', () => {
+        const band20 = DN.BANDS.find(b => b.name === '20m');
+        const v = DN.bandVerdict(68, band20, 0.95, 0.07);
+        assert.equal(v.verdict, 'danger');
+      });
+
+      suite('BANDS data table');
+      test('default band list has 9 entries and excludes channelized 60m', () => {
+        assert.equal(DN.BANDS.length, 9);
+        assert.isTrue(DN.BANDS.every(b => b.name !== '60m'), '60m should not be in the default range-based table');
+      });
+
+      window.runTests();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DangerNode</title>
+<style>
+  :root{
+    --bg: #171b17;
+    --bg-panel: #1e231e;
+    --grid-line: #2a3128;
+    --khaki: #c9b896;
+    --khaki-dim: #8a8168;
+    --amber: #ffa726;
+    --amber-dim: #b5762a;
+    --green-signal: #7fb069;
+    --red-warn: #d9634a;
+    --paper: #edeae0;
+    --border: #3a4238;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--khaki);
+    font-family:'IBM Plex Sans', system-ui, sans-serif;
+    padding:24px;
+  }
+  h1{
+    color:var(--paper);
+    font-size:20px;
+    border-bottom:2px solid var(--amber-dim);
+    padding-bottom:10px;
+  }
+  p{ color:var(--khaki-dim); max-width:560px; }
+</style>
+</head>
+<body>
+  <h1>DangerNode</h1>
+  <p>Know your antinodes before you cut the wire. UI under construction —
+  core physics module (<code>js/physics.js</code>, <code>js/bands.js</code>)
+  is live and exercised by <a href="tests/unit-physics.html" style="color:var(--amber);">tests/unit-physics.html</a>.</p>
+
+  <script src="js/physics.js"></script>
+  <script src="js/bands.js"></script>
+</body>
+</html>
