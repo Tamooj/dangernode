@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>System tests — full app</title>
+</head>
+<body style="font-family: sans-serif; padding: 16px;">
+  <h2 style="font-family:monospace;">DangerNode — system tests (real DOM, real events)</h2>
+  <p style="font-family:monospace; font-size:12px; color:#555; max-width:640px;">
+    Loads the real <code>../index.html</code> in an iframe and drives it like
+    a user would — clicking tabs, dragging sliders (dispatching real
+    <code>input</code> events) — then inspects the resulting DOM. If this page
+    was opened directly via <code>file://</code> and the iframe below stays
+    blank/fails to load, serve the repo instead
+    (<code>python -m http.server</code> from the repo root, then open
+    <code>http://localhost:8000/tests/system-app.html</code>) — some browsers
+    restrict script access across <code>file://</code> iframe boundaries.
+  </p>
+  <iframe id="app" style="width:900px; height:500px; border:1px solid #ccc;"></iframe>
+  <div id="results" style="margin-top:16px;">Loading…</div>
+
+  <script src="harness.js"></script>
+  <script>
+    function setSlider(doc, selector, value) {
+      const inp = doc.querySelector(selector);
+      if (!inp) throw new Error(`slider not found: ${selector}`);
+      inp.value = value;
+      inp.dispatchEvent(new Event('input', { bubbles: true }));
+      return inp;
+    }
+    function clickTab(doc, tab) {
+      doc.querySelector(`#dnTabs [data-tab="${tab}"]`).click();
+    }
+
+    // Cache-bust the iframe load — a static src="../index.html" can otherwise
+    // serve a stale cached copy across test iterations during development.
+    document.getElementById('app').src = '../index.html';
+    document.getElementById('app').addEventListener('load', () => {
+      const win = document.getElementById('app').contentWindow;
+      const doc = win.document;
+
+      // Every test below assumes a clean slate, not whatever an earlier
+      // browser session left in localStorage.
+      win.localStorage.removeItem('dangernode-state-v1');
+
+      suite('Version indicator (stale-cache sanity check)');
+      test('a version/build string is visibly rendered on the page', () => {
+        const text = doc.getElementById('dnVersion').textContent;
+        assert.isTrue(/^v\d+\.\d+\.\d+ · build \d+$/.test(text), `expected a "vX.Y.Z · build N" string, got "${text}"`);
+      });
+
+      suite('Tab switching');
+      test('EFHW and Random Wire tabs carry independent wire state', () => {
+        clickTab(doc, 'random');
+        const randomLen = doc.querySelector('[data-wire-len="0"]').value;
+        clickTab(doc, 'efhw');
+        const efhwLen = doc.querySelector('[data-wire-len="0"]').value;
+        assert.notEqual(randomLen, efhwLen, 'expected the two tabs to default to different wire lengths');
+      });
+      test('Random Wire tab reveals the counterpoise panel; EFHW hides it', () => {
+        clickTab(doc, 'random');
+        assert.equal(doc.getElementById('dnCounterpoisePanel').style.display, 'block');
+        clickTab(doc, 'efhw');
+        assert.equal(doc.getElementById('dnCounterpoisePanel').style.display, 'none');
+      });
+
+      suite('Slider-drag render (jank fix)');
+      test('dragging a wire-length slider does not replace its own DOM node', () => {
+        const before = doc.querySelector('[data-wire-len="0"]');
+        setSlider(doc, '[data-wire-len="0"]', 40);
+        setSlider(doc, '[data-wire-len="0"]', 90);
+        const after = doc.querySelector('[data-wire-len="0"]');
+        assert.isTrue(before === after, 'expected the same range-input DOM node to survive multiple input events');
+      });
+      test('but the outputs (chart/table) still update on drag', () => {
+        setSlider(doc, '[data-wire-len="0"]', 68);
+        const tableBefore = doc.getElementById('dnTable').innerHTML;
+        setSlider(doc, '[data-wire-len="0"]', 137); // roughly double — should flip verdicts
+        const tableAfter = doc.getElementById('dnTable').innerHTML;
+        assert.notEqual(tableBefore, tableAfter, 'expected the band verdict table to change after dragging length');
+      });
+
+      suite('Band verdict table — realistic sanity check (mirrors unit-physics.html)');
+      test('68ft/VF0.95 wire: 40m good, 20m danger, matching the physics unit tests', () => {
+        setSlider(doc, '[data-wire-len="0"]', 68);
+        setSlider(doc, '[data-wire-vf="0"]', 0.95);
+        const rows = Array.from(doc.querySelectorAll('#dnTable tr')).slice(1); // skip header
+        const row40 = rows.find(r => r.cells[0].textContent === '40m');
+        const row20 = rows.find(r => r.cells[0].textContent === '20m');
+        assert.isTrue(row40.textContent.includes('GOOD'), `expected 40m to be GOOD, row text: "${row40.textContent}"`);
+        assert.isTrue(row20.textContent.includes('DANGER'), `expected 20m to be DANGER, row text: "${row20.textContent}"`);
+      });
+
+      suite('Multi-wire comparison (decision 3)');
+      test('adding a comparison wire renders a second slider and a second table column', () => {
+        document.getElementById('app').contentWindow.document.getElementById('addWireBtn').click();
+        assert.isTrue(!!doc.querySelector('[data-wire-len="1"]'), 'expected a second wire length slider');
+        const headerCells = doc.querySelectorAll('#dnTable th');
+        assert.equal(headerCells.length, 4, 'expected Band + Freq + Wire 1 + Wire 2 header columns'); // Band, Freq, Wire1, Wire2
+      });
+      test('a third wire can be added but a fourth is blocked (max 3 per decision 3)', () => {
+        doc.getElementById('addWireBtn').click();
+        assert.isTrue(!!doc.querySelector('[data-wire-len="2"]'), 'expected a third wire length slider');
+        assert.isTrue(doc.getElementById('addWireBtn').disabled, 'expected the add-wire button to disable at 3 wires');
+      });
+      test('removing a wire drops its slider and shrinks the table back down', () => {
+        doc.querySelector('[data-wire-remove="2"]').click();
+        assert.isFalse(!!doc.querySelector('[data-wire-len="2"]'), 'expected the third wire slider to be gone');
+        doc.querySelector('[data-wire-remove="1"]').click();
+        assert.isFalse(!!doc.querySelector('[data-wire-len="1"]'), 'expected back down to a single wire');
+      });
+
+      suite('Danger-zone tolerance slider');
+      test('widening tolerance can flip a marginal verdict to danger live', () => {
+        setSlider(doc, '[data-wire-len="0"]', 68);
+        setSlider(doc, '[data-wire-vf="0"]', 0.95);
+        setSlider(doc, '#toleranceSlider', 0.01);
+        const rows1 = Array.from(doc.querySelectorAll('#dnTable tr')).slice(1);
+        const row10_narrow = rows1.find(r => r.cells[0].textContent === '10m').textContent;
+        setSlider(doc, '#toleranceSlider', 0.3);
+        const rows2 = Array.from(doc.querySelectorAll('#dnTable tr')).slice(1);
+        const row10_wide = rows2.find(r => r.cells[0].textContent === '10m').textContent;
+        assert.notEqual(row10_narrow, row10_wide, 'expected 10m\'s verdict to change between a very narrow and very wide tolerance');
+        setSlider(doc, '#toleranceSlider', 0.07);
+      });
+
+      suite('Band toggle chips');
+      test('deselecting a band chip removes it from the verdict table', () => {
+        const chip20 = doc.querySelector('#bandChips [data-band="20m"]');
+        chip20.click();
+        const rows = Array.from(doc.querySelectorAll('#dnTable tr')).slice(1);
+        assert.isFalse(rows.some(r => r.cells[0].textContent === '20m'), 'expected 20m to be removed from the table');
+        chip20.click(); // restore for later tests
+      });
+      test('the last remaining band chip cannot be deselected', () => {
+        const chips = Array.from(doc.querySelectorAll('#bandChips .dn-chip'));
+        // Deselect every chip except the first.
+        chips.slice(1).forEach(c => { if (c.classList.contains('active')) c.click(); });
+        const activeCount = doc.querySelectorAll('#bandChips .dn-chip.active').length;
+        assert.equal(activeCount, 1, 'expected exactly one band chip to remain active');
+        chips[0].click(); // attempt to deselect the last one
+        const stillActiveCount = doc.querySelectorAll('#bandChips .dn-chip.active').length;
+        assert.equal(stillActiveCount, 1, 'expected the last active chip to refuse deselection');
+        chips.forEach(c => { if (!c.classList.contains('active')) c.click(); }); // restore all
+      });
+
+      suite('Unit toggle');
+      test('feet -> meters -> feet round-trips a wire-length slider value within rounding tolerance', () => {
+        setSlider(doc, '[data-wire-len="0"]', 68);
+        doc.querySelector('#unitToggle [data-unit="m"]').click();
+        const metersVal = parseFloat(doc.querySelector('[data-wire-len="0"]').value);
+        assert.close(metersVal, 68 * 0.3048, 0.01);
+        doc.querySelector('#unitToggle [data-unit="ft"]').click();
+        const feetVal = parseFloat(doc.querySelector('[data-wire-len="0"]').value);
+        assert.close(feetVal, 68, 0.05);
+      });
+
+      suite('Quick Check (input mode 3 — direct frequency + length)');
+      test('editing quick-check fields updates the verdict badge live', () => {
+        const lenInput = doc.getElementById('qcLength');
+        const freqInput = doc.getElementById('qcFreq');
+        lenInput.value = '68';
+        lenInput.dispatchEvent(new Event('input', { bubbles: true }));
+        freqInput.value = '7.15';
+        freqInput.dispatchEvent(new Event('input', { bubbles: true }));
+        assert.isTrue(doc.getElementById('qcResult').textContent.includes('GOOD'), 'expected a GOOD verdict for 68ft on 40m');
+        freqInput.value = '14.15';
+        freqInput.dispatchEvent(new Event('input', { bubbles: true }));
+        assert.isTrue(doc.getElementById('qcResult').textContent.includes('DANGER'), 'expected a DANGER verdict for 68ft on 20m');
+      });
+
+      suite('Counterpoise reference (Random Wire tab, informational only)');
+      test('changing the reference frequency updates the displayed counterpoise length', () => {
+        clickTab(doc, 'random');
+        const cpFreq = doc.getElementById('cpFreq');
+        cpFreq.value = '7.15';
+        cpFreq.dispatchEvent(new Event('input', { bubbles: true }));
+        const v1 = doc.getElementById('cpValue').textContent;
+        cpFreq.value = '14.15';
+        cpFreq.dispatchEvent(new Event('input', { bubbles: true }));
+        const v2 = doc.getElementById('cpValue').textContent;
+        assert.notEqual(v1, v2, 'expected the counterpoise reference length to change with frequency');
+        clickTab(doc, 'efhw');
+      });
+
+      suite('Suggest Lengths (input mode 2 — band select, find good lengths)');
+      test('clicking Apply loads the suggested length onto wire 1', () => {
+        const applyBtn = doc.querySelector('#suggestList [data-apply-len]');
+        const targetLen = parseFloat(applyBtn.dataset.applyLen);
+        applyBtn.click();
+        const sliderVal = parseFloat(doc.querySelector('[data-wire-len="0"]').value);
+        assert.close(sliderVal, targetLen, 0.01, 'expected wire 1\'s length to match the applied suggestion');
+      });
+      test('the applied length lands the reference frequency exactly on an odd-n antinode', () => {
+        const n = win.DN.nValue(win.DN.hwFt(7.15, 0.95), 7.15, 0.95);
+        assert.close(n, 1, 1e-6);
+      });
+
+      suite('localStorage persistence');
+      test('state survives a reload of the app iframe', () => {
+        setSlider(doc, '[data-wire-len="0"]', 77);
+        const iframe = document.getElementById('app');
+        return new Promise(resolve => {
+          iframe.addEventListener('load', function onLoad() {
+            iframe.removeEventListener('load', onLoad);
+            const newDoc = iframe.contentWindow.document;
+            const restored = parseFloat(newDoc.querySelector('[data-wire-len="0"]').value);
+            assert.close(restored, 77, 0.01, `expected the reloaded slider to restore to 77, got ${restored}`);
+            resolve();
+          });
+          iframe.contentWindow.location.reload();
+        });
+      });
+
+      window.runTests();
+    });
+  </script>
+</body>
+</html>

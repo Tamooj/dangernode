@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DangerNode</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@600;700&display=swap" rel="stylesheet">
 <style>
   :root{
     --bg: #171b17;
@@ -19,29 +21,901 @@
     --border: #3a4238;
   }
   *{box-sizing:border-box;}
-  body{
-    margin:0;
+  body{ margin:0; background:#171b17; }
+  .dn-root{
     background:var(--bg);
     color:var(--khaki);
-    font-family:'IBM Plex Sans', system-ui, sans-serif;
-    padding:24px;
+    font-family:'IBM Plex Sans', sans-serif;
+    padding:20px;
+    border-radius:6px;
+    background-image:
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size:22px 22px;
   }
-  h1{
-    color:var(--paper);
-    font-size:20px;
+  .dn-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
     border-bottom:2px solid var(--amber-dim);
     padding-bottom:10px;
+    margin-bottom:16px;
+    flex-wrap:wrap;
+    gap:10px;
   }
-  p{ color:var(--khaki-dim); max-width:560px; }
+  .dn-title{
+    font-family:'IBM Plex Sans Condensed', sans-serif;
+    font-weight:700;
+    font-size:20px;
+    letter-spacing:0.04em;
+    text-transform:uppercase;
+    color:var(--paper);
+  }
+  .dn-title span{color:var(--amber);}
+  .dn-sub{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--khaki-dim);
+    letter-spacing:0.03em;
+  }
+  .dn-unit-toggle{
+    display:flex;
+    border:1px solid var(--border);
+    border-radius:3px;
+    overflow:hidden;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+  }
+  .dn-unit-toggle button{
+    background:var(--bg-panel);
+    color:var(--khaki-dim);
+    border:none;
+    padding:6px 12px;
+    cursor:pointer;
+    transition:all .15s;
+  }
+  .dn-unit-toggle button.active{
+    background:var(--amber-dim);
+    color:var(--paper);
+  }
+  .dn-tabs{
+    display:flex;
+    gap:4px;
+    margin-bottom:14px;
+    flex-wrap:wrap;
+  }
+  .dn-tab{
+    background:var(--bg-panel);
+    border:1px solid var(--border);
+    color:var(--khaki-dim);
+    font-family:'IBM Plex Sans Condensed', sans-serif;
+    font-weight:600;
+    font-size:12px;
+    text-transform:uppercase;
+    letter-spacing:0.03em;
+    padding:9px 14px;
+    cursor:pointer;
+    border-radius:3px;
+    transition:all .15s;
+  }
+  .dn-tab.active{
+    background:var(--amber);
+    color:#1a1a12;
+    border-color:var(--amber);
+  }
+  .dn-tab:hover:not(.active){
+    border-color:var(--amber-dim);
+    color:var(--khaki);
+  }
+  .dn-quickcheck{
+    background:var(--bg-panel);
+    border:1px solid var(--border);
+    border-radius:4px;
+    padding:10px 14px;
+    margin-bottom:14px;
+    display:flex;
+    flex-wrap:wrap;
+    align-items:flex-end;
+    gap:14px;
+  }
+  .dn-quickcheck-label{
+    font-family:'IBM Plex Sans Condensed', sans-serif;
+    font-weight:700;
+    font-size:10px;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    color:var(--amber-dim);
+    width:100%;
+  }
+  .dn-quickcheck-field{
+    display:flex;
+    flex-direction:column;
+    gap:3px;
+  }
+  .dn-quickcheck-field label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px;
+    color:var(--khaki-dim);
+  }
+  .dn-quickcheck-field input{
+    background:#12150f;
+    border:1px solid var(--border);
+    color:var(--paper);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    padding:6px 8px;
+    border-radius:3px;
+    width:100px;
+  }
+  .dn-quickcheck-result{
+    margin-left:auto;
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  .dn-grid{
+    display:grid;
+    grid-template-columns:280px 1fr;
+    gap:18px;
+  }
+  @media (max-width:820px){
+    .dn-grid{grid-template-columns:1fr;}
+  }
+  .dn-panel{
+    background:var(--bg-panel);
+    border:1px solid var(--border);
+    border-radius:4px;
+    padding:14px;
+  }
+  .dn-panel-label{
+    font-family:'IBM Plex Sans Condensed', sans-serif;
+    font-weight:700;
+    font-size:10px;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    color:var(--amber-dim);
+    margin-bottom:10px;
+    border-bottom:1px solid var(--border);
+    padding-bottom:6px;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+  }
+  .dn-field{ margin-bottom:11px; }
+  .dn-field label{
+    display:flex;
+    justify-content:space-between;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    color:var(--khaki);
+    margin-bottom:4px;
+  }
+  .dn-field label .dn-val{ color:var(--amber); font-weight:600; }
+  .dn-field input[type="range"]{ width:100%; accent-color:var(--amber); }
+  .dn-wire-card{
+    border:1px solid var(--border);
+    border-radius:4px;
+    padding:10px;
+    margin-bottom:12px;
+    background:#12150f;
+  }
+  .dn-wire-card-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:8px;
+  }
+  .dn-wire-name{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    font-family:'IBM Plex Sans Condensed', sans-serif;
+    font-weight:700;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.05em;
+    color:var(--paper);
+  }
+  .dn-swatch{
+    width:10px; height:10px; border-radius:2px; display:inline-block;
+  }
+  .dn-remove-btn{
+    background:none;
+    border:1px solid var(--border);
+    color:var(--khaki-dim);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px;
+    padding:3px 7px;
+    border-radius:3px;
+    cursor:pointer;
+  }
+  .dn-remove-btn:hover{ border-color:var(--red-warn); color:#f0a494; }
+  .dn-add-btn{
+    width:100%;
+    background:var(--amber-dim);
+    color:var(--paper);
+    border:none;
+    font-family:'IBM Plex Sans Condensed', sans-serif;
+    font-weight:600;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.03em;
+    padding:8px;
+    border-radius:3px;
+    cursor:pointer;
+    transition:background .15s;
+  }
+  .dn-add-btn:hover{ background:var(--amber); color:#1a1a12; }
+  .dn-add-btn:disabled{ opacity:0.4; cursor:not-allowed; }
+  .dn-chip-row{ display:flex; flex-wrap:wrap; gap:5px; }
+  .dn-chip{
+    background:#12150f;
+    border:1px solid var(--border);
+    color:var(--khaki-dim);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    padding:5px 9px;
+    border-radius:12px;
+    cursor:pointer;
+    transition:all .15s;
+  }
+  .dn-chip.active{
+    background:var(--amber-dim);
+    border-color:var(--amber);
+    color:var(--paper);
+  }
+  .dn-chart-box{
+    background:#12150f;
+    border:1px solid var(--border);
+    border-radius:4px;
+    padding:10px;
+    margin-bottom:14px;
+  }
+  .dn-chart-legend{
+    display:flex;
+    flex-wrap:wrap;
+    gap:12px;
+    margin-top:8px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    color:var(--khaki-dim);
+  }
+  .dn-chart-legend .item{ display:flex; align-items:center; gap:5px; }
+  .dn-chart-legend .swatch-line{ width:16px; height:2px; display:inline-block; }
+  table.dn-table{
+    width:100%;
+    border-collapse:collapse;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+  }
+  table.dn-table th{
+    text-align:center;
+    color:var(--amber);
+    font-weight:600;
+    padding:6px 6px;
+    border-bottom:2px solid var(--amber-dim);
+    text-transform:uppercase;
+    font-size:9.5px;
+    letter-spacing:0.03em;
+  }
+  table.dn-table th:first-child, table.dn-table td:first-child{ text-align:left; }
+  table.dn-table td{
+    text-align:center;
+    padding:5px 6px;
+    color:var(--paper);
+    border-bottom:1px solid var(--border);
+  }
+  table.dn-table tr:hover td{ background:rgba(255,167,38,0.06); }
+  .dn-badge{
+    display:inline-block;
+    padding:2px 7px;
+    border-radius:10px;
+    font-size:10px;
+    font-weight:600;
+    letter-spacing:0.02em;
+  }
+  .dn-badge-good{ background:rgba(127,176,105,0.18); color:var(--green-signal); border:1px solid var(--green-signal); }
+  .dn-badge-marginal{ background:rgba(255,167,38,0.15); color:var(--amber); border:1px solid var(--amber); }
+  .dn-badge-danger{ background:rgba(217,99,74,0.18); color:#f0a494; border:1px solid var(--red-warn); }
+  .dn-counterpoise-box{
+    margin-top:14px;
+  }
+  .dn-counterpoise-value{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:22px;
+    color:var(--green-signal);
+    font-weight:600;
+  }
+  .dn-hint{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px;
+    color:var(--khaki-dim);
+    margin-top:6px;
+    line-height:1.4;
+  }
+  .dn-suggest-box{ margin-top:14px; }
+  .dn-suggest-row{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    padding:6px 8px;
+    border:1px solid var(--border);
+    border-radius:3px;
+    margin-bottom:6px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    background:#12150f;
+  }
+  .dn-suggest-apply{
+    background:none;
+    border:1px solid var(--amber-dim);
+    color:var(--amber);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px;
+    padding:4px 9px;
+    border-radius:3px;
+    cursor:pointer;
+  }
+  .dn-suggest-apply:hover{ background:var(--amber-dim); color:var(--paper); }
+  .dn-version{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:9px;
+    color:var(--khaki-dim);
+    opacity:0.55;
+    text-align:right;
+    margin-top:10px;
+  }
+  select.dn-select{
+    background:#12150f;
+    border:1px solid var(--border);
+    color:var(--paper);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    padding:6px 8px;
+    border-radius:3px;
+  }
 </style>
 </head>
 <body>
-  <h1>DangerNode</h1>
-  <p>Know your antinodes before you cut the wire. UI under construction —
-  core physics module (<code>js/physics.js</code>, <code>js/bands.js</code>)
-  is live and exercised by <a href="tests/unit-physics.html" style="color:var(--amber);">tests/unit-physics.html</a>.</p>
 
-  <script src="js/physics.js"></script>
-  <script src="js/bands.js"></script>
+<div class="dn-root" id="dnRoot">
+  <div class="dn-header">
+    <div>
+      <div class="dn-title">Danger<span>Node</span></div>
+      <div class="dn-sub">Know your antinodes before you cut the wire.</div>
+    </div>
+    <div class="dn-unit-toggle" id="unitToggle">
+      <button data-unit="ft" class="active">FEET</button>
+      <button data-unit="m">METERS</button>
+    </div>
+  </div>
+
+  <div class="dn-tabs" id="dnTabs">
+    <button class="dn-tab active" data-tab="efhw">EFHW</button>
+    <button class="dn-tab" data-tab="random">Random Wire</button>
+  </div>
+
+  <div class="dn-quickcheck" id="dnQuickCheck">
+    <div class="dn-quickcheck-label">Quick Check — single length + frequency</div>
+    <div class="dn-quickcheck-field">
+      <label>Length (<span id="qcLenUnit">ft</span>)</label>
+      <input type="number" id="qcLength" step="0.1" min="1">
+    </div>
+    <div class="dn-quickcheck-field">
+      <label>VF</label>
+      <input type="number" id="qcVf" step="0.01" min="0.5" max="1.05">
+    </div>
+    <div class="dn-quickcheck-field">
+      <label>Freq (MHz)</label>
+      <input type="number" id="qcFreq" step="0.01" min="1.8" max="29.7">
+    </div>
+    <div class="dn-quickcheck-result" id="qcResult"></div>
+  </div>
+
+  <div class="dn-grid">
+    <div>
+      <div class="dn-panel" id="dnWirePanel"></div>
+
+      <div class="dn-panel" style="margin-top:12px;">
+        <div class="dn-panel-label">Danger-Zone Tolerance</div>
+        <div class="dn-field">
+          <label>±<span class="dn-val" id="lblTolerance"></span> in n</label>
+          <input type="range" id="toleranceSlider" min="0.01" max="0.30" step="0.01">
+        </div>
+        <div class="dn-hint">How close to an even-integer node counts as "danger." Amber (marginal) buffer is 2x this value.</div>
+      </div>
+
+      <div class="dn-panel" style="margin-top:12px;">
+        <div class="dn-panel-label">Bands Shown</div>
+        <div class="dn-chip-row" id="bandChips"></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="dn-chart-box">
+        <svg id="dnChart" viewBox="0 0 760 340" style="width:100%;height:auto;"></svg>
+        <div class="dn-chart-legend" id="dnChartLegend"></div>
+      </div>
+
+      <div class="dn-panel">
+        <div class="dn-panel-label">Band Verdicts</div>
+        <div style="overflow-x:auto;">
+          <table class="dn-table" id="dnTable"></table>
+        </div>
+      </div>
+
+      <div class="dn-panel dn-counterpoise-box" id="dnCounterpoisePanel" style="display:none;">
+        <div class="dn-panel-label">Counterpoise Reference (informational only)</div>
+        <div class="dn-field-row" style="display:flex; gap:16px; align-items:flex-end; flex-wrap:wrap;">
+          <div class="dn-quickcheck-field">
+            <label>Reference freq (MHz)</label>
+            <input type="number" id="cpFreq" step="0.01" min="1.8" max="29.7">
+          </div>
+          <div>
+            <div class="dn-counterpoise-value" id="cpValue"></div>
+          </div>
+        </div>
+        <div class="dn-hint">Free-space quarter-wave rule of thumb (<code>246 / f_MHz</code>), VF-adjustable via wire 1's VF. Not part of the danger-zone calculation — no ground/counterpoise coupling is modeled.</div>
+      </div>
+
+      <div class="dn-panel dn-suggest-box">
+        <div class="dn-panel-label">Suggest Lengths — land a band on an antinode</div>
+        <div class="dn-field-row" style="display:flex; gap:16px; align-items:flex-end; flex-wrap:wrap; margin-bottom:10px;">
+          <div class="dn-quickcheck-field">
+            <label>Target band</label>
+            <select class="dn-select" id="suggestBand"></select>
+          </div>
+          <div class="dn-quickcheck-field">
+            <label>Reference freq (MHz)</label>
+            <input type="number" id="suggestFreq" step="0.01">
+          </div>
+        </div>
+        <div id="suggestList"></div>
+        <div class="dn-hint">Lengths that land the reference frequency exactly on a voltage-antinode (odd n), using wire 1's VF. "Apply" loads the length into wire 1. Other verdict columns show the tradeoff against your other shown bands.</div>
+      </div>
+    </div>
+  </div>
+  <div class="dn-version" id="dnVersion"></div>
+</div>
+
+<script src="js/physics.js"></script>
+<script src="js/bands.js"></script>
+<script>
+(function(){
+  const APP_VERSION = 'v0.1.0';
+  const APP_BUILD = 1;
+
+  // ---------- Pure helpers, merged into window.DN so tests/*.html can load
+  // the real index.html in a hidden iframe and exercise these directly,
+  // same pattern as the physics.js functions already on window.DN. ----------
+  function sweepCurve(lengthFt, vf, fLowMHz, fHighMHz, steps) {
+    const pts = [];
+    for (let i = 0; i <= steps; i++) {
+      const f = fLowMHz + (fHighMHz - fLowMHz) * (i / steps);
+      const n = DN.nValue(lengthFt, f, vf);
+      pts.push({ f, dist: DN.distanceToNearestEven(n) });
+    }
+    return pts;
+  }
+
+  function overallVerdict(lengthFt, bands, vf, tolerance) {
+    const counts = { good: 0, marginal: 0, danger: 0 };
+    let worst = 'good';
+    bands.forEach(b => {
+      const v = DN.bandVerdict(lengthFt, b, vf, tolerance).verdict;
+      counts[v]++;
+      if (v === 'danger') worst = 'danger';
+      else if (v === 'marginal' && worst !== 'danger') worst = 'marginal';
+    });
+    return { worst, counts };
+  }
+
+  // Suggested lengths that land refFreqMHz exactly on a voltage antinode
+  // (odd n) — L = n * hw(refFreq). Pure inverse of nValue.
+  function suggestLengths(refFreqMHz, vf, maxLengthFt, oddNs) {
+    oddNs = oddNs || [1, 3, 5, 7, 9];
+    const out = [];
+    oddNs.forEach(n => {
+      const lengthFt = n * DN.hwFt(refFreqMHz, vf);
+      if (lengthFt <= maxLengthFt) out.push({ n, lengthFt });
+    });
+    return out;
+  }
+
+  window.DN = Object.assign(window.DN || {}, { sweepCurve, overallVerdict, suggestLengths });
+
+  // ---------- App state ----------
+  const STORAGE_KEY = 'dangernode-state-v1';
+  const WIRE_COLORS = ['#ffa726', '#edeae0', '#c9b896']; // amber, paper, khaki
+  const LEN_BOUNDS_FT = [5, 200, 0.5];
+  const VF_BOUNDS = [0.80, 1.00, 0.01];
+  const FREQ_MIN = 1.8, FREQ_MAX = 29.7; // 160m low edge .. 10m high edge
+
+  function defaultState(){
+    return {
+      unit: 'ft',
+      tab: 'efhw',
+      tolerance: 0.07,
+      activeBands: DN.BANDS.map(b => b.name),
+      wires: {
+        efhw: [ { lengthFt: 68, vf: 0.95 } ],
+        random: [ { lengthFt: 84, vf: 0.95 } ],
+      },
+      cpFreqMHz: 7.15,
+      suggestBand: '40m',
+      suggestFreq: 7.15,
+      quickCheck: { lengthFt: 68, vf: 0.95, freqMHz: 7.15 },
+    };
+  }
+
+  function loadState(){
+    const d = defaultState();
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return d;
+      const saved = JSON.parse(raw);
+      // Shallow-merge with defaults so a missing/added field in an older
+      // saved blob can't crash the app or silently drop new features.
+      return {
+        ...d,
+        ...saved,
+        wires: { efhw: saved.wires && saved.wires.efhw || d.wires.efhw, random: saved.wires && saved.wires.random || d.wires.random },
+        quickCheck: { ...d.quickCheck, ...(saved.quickCheck || {}) },
+      };
+    } catch (e) {
+      return d;
+    }
+  }
+
+  function saveState(){
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) { /* storage unavailable — degrade silently, nothing field-critical depends on persistence */ }
+  }
+
+  const state = loadState();
+  const root = document.getElementById('dnRoot');
+
+  function uLabel(){ return state.unit === 'ft' ? 'ft' : 'm'; }
+  function toDisplay(ft){ return state.unit === 'ft' ? ft : ft * 0.3048; }
+  function toFeet(v){ return state.unit === 'ft' ? v : v / 0.3048; }
+  function fmt(v, d){ d = d === undefined ? 2 : d; return (Math.round(v * Math.pow(10,d)) / Math.pow(10,d)).toFixed(d); }
+  function lenRange(){
+    const [min,max,step] = LEN_BOUNDS_FT;
+    const f = state.unit === 'ft' ? 1 : 0.3048;
+    return [min*f, max*f, step*f];
+  }
+  function activeWires(){ return state.wires[state.tab]; }
+
+  function verdictBadge(verdict){
+    const label = verdict === 'good' ? 'GOOD' : verdict === 'marginal' ? 'MARGINAL' : 'DANGER';
+    const icon = verdict === 'good' ? '✓' : verdict === 'marginal' ? '▲' : '✕';
+    return `<span class="dn-badge dn-badge-${verdict}">${icon} ${label}</span>`;
+  }
+
+  function activeBandObjs(){
+    return DN.BANDS.filter(b => state.activeBands.includes(b.name));
+  }
+
+  // ---------- Rendering: inputs (rebuilt on tab/unit/wire-count/band-chip change) ----------
+  function renderWirePanel(){
+    const wires = activeWires();
+    let html = `<div class="dn-panel-label">Wires (${wires.length}/3)</div>`;
+    wires.forEach((w, i) => {
+      const [min,max,step] = lenRange();
+      html += `
+        <div class="dn-wire-card">
+          <div class="dn-wire-card-header">
+            <div class="dn-wire-name"><span class="dn-swatch" style="background:${WIRE_COLORS[i]}"></span>Wire ${i+1}</div>
+            ${wires.length > 1 ? `<button class="dn-remove-btn" data-wire-remove="${i}">Remove</button>` : ''}
+          </div>
+          <div class="dn-field">
+            <label>Length <span class="dn-val" id="lblLen${i}">${fmt(toDisplay(w.lengthFt))} ${uLabel()}</span></label>
+            <input type="range" min="${min}" max="${max}" step="${step}" value="${toDisplay(w.lengthFt).toFixed(6)}" data-wire-len="${i}">
+          </div>
+          <div class="dn-field">
+            <label>VF <span class="dn-val" id="lblVf${i}">${fmt(w.vf, 2)}</span></label>
+            <input type="range" min="${VF_BOUNDS[0]}" max="${VF_BOUNDS[1]}" step="${VF_BOUNDS[2]}" value="${w.vf.toFixed(6)}" data-wire-vf="${i}">
+          </div>
+        </div>
+      `;
+    });
+    html += `<button class="dn-add-btn" id="addWireBtn" ${wires.length >= 3 ? 'disabled' : ''}>+ Add comparison wire</button>`;
+    document.getElementById('dnWirePanel').innerHTML = html;
+    bindWireInputs();
+  }
+
+  function bindWireInputs(){
+    const panel = document.getElementById('dnWirePanel');
+    panel.querySelectorAll('[data-wire-len]').forEach(inp => {
+      inp.addEventListener('input', e => {
+        const i = +e.target.dataset.wireLen;
+        activeWires()[i].lengthFt = toFeet(parseFloat(e.target.value));
+        document.getElementById(`lblLen${i}`).textContent = `${fmt(parseFloat(e.target.value))} ${uLabel()}`;
+        renderOutputs();
+        saveState();
+      });
+    });
+    panel.querySelectorAll('[data-wire-vf]').forEach(inp => {
+      inp.addEventListener('input', e => {
+        const i = +e.target.dataset.wireVf;
+        activeWires()[i].vf = parseFloat(e.target.value);
+        document.getElementById(`lblVf${i}`).textContent = fmt(parseFloat(e.target.value), 2);
+        renderOutputs();
+        saveState();
+      });
+    });
+    const addBtn = document.getElementById('addWireBtn');
+    if (addBtn) addBtn.addEventListener('click', () => {
+      const wires = activeWires();
+      if (wires.length >= 3) return;
+      const last = wires[wires.length - 1];
+      wires.push({ lengthFt: last.lengthFt, vf: last.vf });
+      renderInputs();
+      renderOutputs();
+      saveState();
+    });
+    panel.querySelectorAll('[data-wire-remove]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const i = +btn.dataset.wireRemove;
+        const wires = activeWires();
+        if (wires.length <= 1) return;
+        wires.splice(i, 1);
+        renderInputs();
+        renderOutputs();
+        saveState();
+      });
+    });
+  }
+
+  function renderBandChips(){
+    const html = DN.BANDS.map(b => {
+      const active = state.activeBands.includes(b.name);
+      return `<button class="dn-chip ${active ? 'active' : ''}" data-band="${b.name}">${b.name}</button>`;
+    }).join('');
+    document.getElementById('bandChips').innerHTML = html;
+    document.getElementById('bandChips').querySelectorAll('.dn-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        const name = chip.dataset.band;
+        const idx = state.activeBands.indexOf(name);
+        if (idx >= 0) {
+          if (state.activeBands.length <= 1) return; // keep at least one band shown
+          state.activeBands.splice(idx, 1);
+        } else {
+          state.activeBands.push(name);
+        }
+        chip.classList.toggle('active');
+        renderOutputs();
+        renderSuggestBandOptions();
+        saveState();
+      });
+    });
+  }
+
+  function renderSuggestBandOptions(){
+    const sel = document.getElementById('suggestBand');
+    const bands = activeBandObjs();
+    if (!bands.find(b => b.name === state.suggestBand) && bands.length) state.suggestBand = bands[0].name;
+    sel.innerHTML = bands.map(b => `<option value="${b.name}" ${b.name === state.suggestBand ? 'selected' : ''}>${b.name}</option>`).join('');
+  }
+
+  function renderInputs(){
+    renderWirePanel();
+    document.getElementById('lblTolerance').textContent = fmt(state.tolerance, 2);
+    document.getElementById('toleranceSlider').value = state.tolerance;
+    renderBandChips();
+    document.getElementById('dnCounterpoisePanel').style.display = state.tab === 'random' ? 'block' : 'none';
+    document.getElementById('cpFreq').value = state.cpFreqMHz;
+    document.getElementById('qcLenUnit').textContent = uLabel();
+    document.getElementById('qcLength').value = fmt(toDisplay(state.quickCheck.lengthFt));
+    document.getElementById('qcVf').value = state.quickCheck.vf;
+    document.getElementById('qcFreq').value = state.quickCheck.freqMHz;
+    renderSuggestBandOptions();
+    document.getElementById('suggestFreq').value = state.suggestFreq;
+  }
+
+  // ---------- Rendering: outputs (safe to call on every slider tick — never
+  // touches an input's own DOM node, so drags don't jank/lose focus). ----------
+  function freqToX(f, plot){ return plot.marginL + (f - FREQ_MIN) / (FREQ_MAX - FREQ_MIN) * plot.w; }
+  function distToY(d, plot){ return plot.marginT + plot.h - d * plot.h; }
+
+  function renderChart(){
+    const svg = document.getElementById('dnChart');
+    const W = 760, H = 340, marginL = 34, marginR = 14, marginT = 14, marginB = 34;
+    const plot = { marginL, marginT, w: W - marginL - marginR, h: H - marginT - marginB };
+    const wires = activeWires();
+    const tol = state.tolerance;
+
+    let svgHtml = '';
+
+    // Background traffic-light zones (danger at bottom, good at top).
+    const zoneDanger = { y0: 0, y1: tol };
+    const zoneMarginal = { y0: tol, y1: Math.min(1, tol * 2) };
+    const zoneGood = { y0: Math.min(1, tol * 2), y1: 1 };
+    [
+      [zoneDanger, 'rgba(217,99,74,0.16)'],
+      [zoneMarginal, 'rgba(255,167,38,0.12)'],
+      [zoneGood, 'rgba(127,176,105,0.10)'],
+    ].forEach(([z, color]) => {
+      const y1 = distToY(z.y0, plot), y0 = distToY(z.y1, plot);
+      svgHtml += `<rect x="${marginL}" y="${y0}" width="${plot.w}" height="${y1-y0}" fill="${color}"/>`;
+    });
+
+    // Active band vertical highlights + labels.
+    activeBandObjs().forEach(b => {
+      const x0 = freqToX(b.lowMHz, plot), x1 = freqToX(b.highMHz, plot);
+      svgHtml += `<rect x="${x0}" y="${plot.marginT}" width="${Math.max(1,x1-x0)}" height="${plot.h}" fill="rgba(201,184,150,0.07)" stroke="rgba(201,184,150,0.18)" stroke-width="1"/>`;
+      const labelX = (x0 + x1) / 2;
+      svgHtml += `<text x="${labelX}" y="${plot.marginT + 11}" font-size="9" fill="#8a8168" font-family="IBM Plex Mono" text-anchor="middle">${b.name}</text>`;
+    });
+
+    // Frequency axis line + gridline labels.
+    const axisY = distToY(0, plot);
+    svgHtml += `<line x1="${marginL}" y1="${axisY}" x2="${W-marginR}" y2="${axisY}" stroke="#3a4238" stroke-width="1"/>`;
+    for (let f = 5; f < FREQ_MAX; f += 5) {
+      const x = freqToX(f, plot);
+      svgHtml += `<line x1="${x}" y1="${plot.marginT}" x2="${x}" y2="${axisY}" stroke="#2a3128" stroke-width="1"/>`;
+      svgHtml += `<text x="${x}" y="${H-marginB+14}" font-size="9" fill="#8a8168" font-family="IBM Plex Mono" text-anchor="middle">${f}</text>`;
+    }
+    svgHtml += `<text x="${marginL-6}" y="${distToY(0,plot)+3}" font-size="9" fill="#8a8168" font-family="IBM Plex Mono" text-anchor="end">0</text>`;
+    svgHtml += `<text x="${marginL-6}" y="${distToY(1,plot)+3}" font-size="9" fill="#8a8168" font-family="IBM Plex Mono" text-anchor="end">1</text>`;
+    svgHtml += `<text x="10" y="${plot.marginT+plot.h/2}" font-size="9" fill="#8a8168" font-family="IBM Plex Mono" text-anchor="middle" transform="rotate(-90 10 ${plot.marginT+plot.h/2})">distance from node</text>`;
+
+    // Per-wire curves.
+    wires.forEach((w, i) => {
+      const pts = DN.sweepCurve(w.lengthFt, w.vf, FREQ_MIN, FREQ_MAX, 500);
+      const path = pts.map((p, idx) => `${idx === 0 ? 'M' : 'L'}${freqToX(p.f, plot).toFixed(2)},${distToY(p.dist, plot).toFixed(2)}`).join(' ');
+      svgHtml += `<path d="${path}" fill="none" stroke="${WIRE_COLORS[i]}" stroke-width="2"/>`;
+    });
+
+    svg.innerHTML = svgHtml;
+
+    const legend = wires.map((w, i) => `
+      <div class="item"><span class="swatch-line" style="background:${WIRE_COLORS[i]}"></span>Wire ${i+1}: ${fmt(toDisplay(w.lengthFt))} ${uLabel()}, VF ${fmt(w.vf,2)}</div>
+    `).join('');
+    document.getElementById('dnChartLegend').innerHTML = legend;
+  }
+
+  function renderTable(){
+    const wires = activeWires();
+    const bands = activeBandObjs();
+    let html = '<tr><th>Band</th><th>Freq (MHz)</th>' + wires.map((w,i) => `<th>Wire ${i+1}</th>`).join('') + '</tr>';
+    bands.forEach(b => {
+      html += `<tr><td>${b.name}</td><td>${b.lowMHz.toFixed(3)}–${b.highMHz.toFixed(3)}</td>`;
+      wires.forEach(w => {
+        const v = DN.bandVerdict(w.lengthFt, b, w.vf, state.tolerance);
+        html += `<td>${verdictBadge(v.verdict)}</td>`;
+      });
+      html += '</tr>';
+    });
+    document.getElementById('dnTable').innerHTML = html;
+  }
+
+  function renderCounterpoise(){
+    if (state.tab !== 'random') return;
+    const wires = activeWires();
+    const vf = wires[0] ? wires[0].vf : 1;
+    const cpFt = DN.counterpoiseFt(state.cpFreqMHz, vf);
+    document.getElementById('cpValue').textContent = `${fmt(toDisplay(cpFt))} ${uLabel()}`;
+  }
+
+  function renderQuickCheck(){
+    const qc = state.quickCheck;
+    const n = DN.nValue(qc.lengthFt, qc.freqMHz, qc.vf);
+    const dist = DN.distanceToNearestEven(n);
+    const verdict = DN.classifyDistance(dist, state.tolerance);
+    document.getElementById('qcResult').innerHTML = `${verdictBadge(verdict)} <span style="font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--khaki-dim);">n=${fmt(n,3)}</span>`;
+  }
+
+  function renderSuggestList(){
+    const band = DN.BANDS.find(b => b.name === state.suggestBand);
+    if (!band) { document.getElementById('suggestList').innerHTML = ''; return; }
+    const wires = activeWires();
+    const vf = wires[0] ? wires[0].vf : 0.95;
+    const suggestions = DN.suggestLengths(state.suggestFreq, vf, LEN_BOUNDS_FT[1]);
+    const bands = activeBandObjs();
+    const html = suggestions.map(s => {
+      const ov = DN.overallVerdict(s.lengthFt, bands.filter(b => b.name !== band.name), vf, state.tolerance);
+      const summary = `${ov.counts.good}✓ ${ov.counts.marginal}▲ ${ov.counts.danger}✕`;
+      return `
+        <div class="dn-suggest-row">
+          <span>n=${s.n} → ${fmt(toDisplay(s.lengthFt))} ${uLabel()}</span>
+          <span>${verdictBadge(ov.worst)} <span style="color:var(--khaki-dim);">other bands: ${summary}</span></span>
+          <button class="dn-suggest-apply" data-apply-len="${s.lengthFt}">Apply to Wire 1</button>
+        </div>
+      `;
+    }).join('');
+    document.getElementById('suggestList').innerHTML = html || '<div class="dn-hint">No candidate lengths within the slider range.</div>';
+    document.getElementById('suggestList').querySelectorAll('[data-apply-len]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        activeWires()[0].lengthFt = parseFloat(btn.dataset.applyLen);
+        renderInputs();
+        renderOutputs();
+        saveState();
+      });
+    });
+  }
+
+  function renderOutputs(){
+    renderChart();
+    renderTable();
+    renderCounterpoise();
+    renderQuickCheck();
+    renderSuggestList();
+  }
+
+  function render(){
+    renderInputs();
+    renderOutputs();
+  }
+
+  // ---------- Event wiring for controls outside the rebuilt wire panel ----------
+  document.getElementById('unitToggle').addEventListener('click', e => {
+    const btn = e.target.closest('button');
+    if (!btn || btn.dataset.unit === state.unit) return;
+    state.unit = btn.dataset.unit;
+    root.querySelectorAll('#unitToggle button').forEach(b => b.classList.toggle('active', b === btn));
+    render();
+    saveState();
+  });
+
+  document.getElementById('dnTabs').addEventListener('click', e => {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+    state.tab = btn.dataset.tab;
+    root.querySelectorAll('#dnTabs button').forEach(b => b.classList.toggle('active', b === btn));
+    render();
+    saveState();
+  });
+
+  document.getElementById('toleranceSlider').addEventListener('input', e => {
+    state.tolerance = parseFloat(e.target.value);
+    document.getElementById('lblTolerance').textContent = fmt(state.tolerance, 2);
+    renderOutputs();
+    saveState();
+  });
+
+  ['qcLength','qcVf','qcFreq'].forEach(id => {
+    document.getElementById(id).addEventListener('input', e => {
+      const v = parseFloat(e.target.value);
+      if (isNaN(v)) return;
+      if (id === 'qcLength') state.quickCheck.lengthFt = toFeet(v);
+      if (id === 'qcVf') state.quickCheck.vf = v;
+      if (id === 'qcFreq') state.quickCheck.freqMHz = v;
+      renderQuickCheck();
+      saveState();
+    });
+  });
+
+  document.getElementById('cpFreq').addEventListener('input', e => {
+    const v = parseFloat(e.target.value);
+    if (isNaN(v)) return;
+    state.cpFreqMHz = v;
+    renderCounterpoise();
+    saveState();
+  });
+
+  document.getElementById('suggestBand').addEventListener('change', e => {
+    state.suggestBand = e.target.value;
+    const band = DN.BANDS.find(b => b.name === state.suggestBand);
+    if (band) state.suggestFreq = (band.lowMHz + band.highMHz) / 2;
+    document.getElementById('suggestFreq').value = state.suggestFreq;
+    renderSuggestList();
+    saveState();
+  });
+
+  document.getElementById('suggestFreq').addEventListener('input', e => {
+    const v = parseFloat(e.target.value);
+    if (isNaN(v)) return;
+    state.suggestFreq = v;
+    renderSuggestList();
+    saveState();
+  });
+
+  document.getElementById('dnVersion').textContent = `${APP_VERSION} · build ${APP_BUILD}`;
+
+  render();
+})();
+</script>
+
 </body>
 </html>

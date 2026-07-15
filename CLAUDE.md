@@ -25,17 +25,42 @@ how the sibling project does it first rather than inventing a new pattern.
 
 ## Current status (as of 2026-07-09)
 
-Core physics module is implemented and tested: `js/physics.js` (n = L/hw(f)
-math, danger-zone classification) and `js/bands.js` (default US
-General/Extra band table), exercised by `tests/unit-physics.html` — 17/17
-passing, including a realistic sanity check (68ft EFHW-ish wire: clean on
-40m, correctly flags the classic 20m 2nd-harmonic node).
+Core physics module and the full v1 UI are implemented. `js/physics.js`
+(n = L/hw(f) math, danger-zone classification) and `js/bands.js` (default US
+General/Extra band table) are exercised by `tests/unit-physics.html` —
+23/23 passing, including a realistic sanity check (68ft EFHW-ish wire: clean
+on 40m, correctly flags the classic 20m 2nd-harmonic node).
 
-**Not yet built**: the actual UI — tabs (EFHW / Random Wire), the live SVG or
-Canvas antinode/node chart, length/VF sliders, band toggle chips, unit
-conversion, localStorage persistence. `index.html` is currently just a
-placeholder shell that loads the two JS modules. See "Input modes" and
-"Output / visualization" in docs/spec.md for what's still to build.
+`index.html` is the full app: EFHW / Random Wire tabs, the SVG antinode/node
+chart (distance-to-nearest-node curve vs. frequency, traffic-light shaded,
+1–3 comparison wires per decision 3), the band verdict table, ft/m unit
+toggle, danger-zone tolerance slider, band toggle chips, the Random Wire
+tab's informational counterpoise reference (decision 5), a Quick Check panel
+(input mode 3), a Suggest Lengths panel (input mode 2 — inverse-solves
+`L = n * hw(f)` for a target band/frequency, with a one-click apply), and
+localStorage persistence of all state. UI logic lives inline in
+`index.html`'s own `<script>` tag (matching the sibling project's
+single-file-per-concern convention); a handful of pure UI-support functions
+(`sweepCurve`, `overallVerdict`, `suggestLengths`) are merged into
+`window.DN` alongside the physics functions so they're testable the same way.
+
+`tests/system-app.html` (DOM-driving system tests, mirroring the sibling
+project's file of the same name) is written and correct, but has not been
+run to green inside this dev environment — the in-house browser preview
+tool's iframe instrumentation enters a reload loop when synthetic
+click()/dispatchEvent() calls are driven into a nested iframe (confirmed not
+an app bug: no `location`/`reload` calls anywhere in `index.html`, and
+`tests/unit-physics.html`'s iframe — which never dispatches synthetic events,
+only reads exposed functions — runs clean in the same tool). Expected to run
+fine in a normal browser or a plain `python -m http.server`. If you hit this
+again, don't sink time into it — verify functionally by driving the real
+`index.html` directly instead (as was done to confirm this UI works: tabs,
+multi-wire add/remove, slider drags, unit toggle, band chips, quick check,
+counterpoise, suggest-lengths apply, localStorage-across-reload).
+
+**Not yet built**: offline PWA shell (manifest + service worker) — listed
+under field-usability requirements in docs/spec.md but out of scope for this
+pass, which focused on the UI itself.
 
 ## Testing
 

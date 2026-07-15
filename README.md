@@ -14,10 +14,13 @@ See [docs/spec.md](docs/spec.md) for the full design spec.
 
 ## Status
 
-Core physics module (`js/physics.js`, `js/bands.js`) is implemented and
-covered by `tests/unit-physics.html` (17/17 passing). UI — tabs, the live
-chart, sliders — is not yet built. See [CLAUDE.md](CLAUDE.md) for the
-current-status detail and [docs/spec.md](docs/spec.md) for the full spec.
+Core physics module (`js/physics.js`, `js/bands.js`) plus the full v1
+UI — tabs, the live SVG chart, wire/VF/tolerance sliders, band toggle
+chips, Quick Check, Suggest Lengths, counterpoise reference, unit
+conversion, localStorage persistence — are implemented, covered by
+`tests/unit-physics.html` (23/23 passing). See [CLAUDE.md](CLAUDE.md) for
+the current-status detail and [docs/spec.md](docs/spec.md) for the full
+spec.
 
 ## License
 
