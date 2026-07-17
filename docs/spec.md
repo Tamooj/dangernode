@@ -80,10 +80,15 @@ node/antinode mapping), not in v1.
    UI already supports multiple marker sets structurally, this is cheap to
    include now.
 
-4. **VF handling**: **Per-wire**, not global. Each length slider carries
-   its own VF input (default ~0.95–0.98), since comparing bare vs.
-   insulated/jacketed wire candidates is a real use case (see decision 3)
-   and a shared VF would silently make that comparison wrong.
+4. **VF handling**: ~~Per-wire, not global~~ — **amended 2026-07-16, after
+   hands-on use of the v1 build**: VF is a single **global** setting (moved
+   to a Settings tab), while length stays per-wire. The original rationale
+   (comparing bare vs. insulated wire candidates) still holds in principle,
+   but in practice the per-wire VF sliders added UI clutter disproportionate
+   to how often that comparison actually gets used — the dominant workflow
+   is comparing candidate *lengths* at one known VF, not comparing
+   materials. If bare-vs-jacketed comparison turns out to be needed after
+   all, per-wire VF can be reinstated; until then, global VF is simpler.
 
 5. **Counterpoise length (Random Wire tab)**: **Informational only** for
    v1 — not fed into the n-calculation. Confirmed against competitive

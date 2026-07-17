@@ -64,6 +64,28 @@
         assert.equal(doc.getElementById('dnCounterpoisePanel').style.display, 'none');
       });
 
+      suite('Settings tab (global VF, decision 4 amendment)');
+      test('Settings tab swaps the calc content out for the settings panel', () => {
+        clickTab(doc, 'settings');
+        assert.equal(doc.getElementById('dnSettingsPanel').style.display, 'block');
+        assert.equal(doc.getElementById('dnCalcContent').style.display, 'none');
+        clickTab(doc, 'efhw');
+        assert.equal(doc.getElementById('dnSettingsPanel').style.display, 'none');
+        assert.equal(doc.getElementById('dnCalcContent').style.display, 'block');
+      });
+      test('editing the global VF number box moves the slider and updates every wire\'s verdict', () => {
+        setSlider(doc, '[data-wire-len="0"]', 68);
+        const before = doc.getElementById('dnTable').innerHTML;
+        const vfNum = doc.getElementById('globalVfNumber');
+        vfNum.value = '0.80';
+        vfNum.dispatchEvent(new Event('input', { bubbles: true }));
+        assert.close(parseFloat(doc.getElementById('globalVfSlider').value), 0.80, 1e-6, 'expected the paired slider to follow the number box');
+        const after = doc.getElementById('dnTable').innerHTML;
+        assert.notEqual(before, after, 'expected the verdict table to change when global VF changes, since VF now applies to every wire');
+        vfNum.value = '0.95';
+        vfNum.dispatchEvent(new Event('input', { bubbles: true })); // restore default for later tests
+      });
+
       suite('Slider-drag render (jank fix)');
       test('dragging a wire-length slider does not replace its own DOM node', () => {
         const before = doc.querySelector('[data-wire-len="0"]');
@@ -80,10 +102,22 @@
         assert.notEqual(tableBefore, tableAfter, 'expected the band verdict table to change after dragging length');
       });
 
+      suite('Paired slider + number entry for wire length');
+      test('typing in the number box moves the slider to the same value', () => {
+        const numInput = doc.querySelector('[data-wire-len-num="0"]');
+        numInput.value = '72';
+        numInput.dispatchEvent(new Event('input', { bubbles: true }));
+        assert.close(parseFloat(doc.querySelector('[data-wire-len="0"]').value), 72, 1e-6);
+      });
+      test('dragging the slider moves the number box to the same value', () => {
+        setSlider(doc, '[data-wire-len="0"]', 55);
+        assert.close(parseFloat(doc.querySelector('[data-wire-len-num="0"]').value), 55, 0.01);
+      });
+
       suite('Band verdict table — realistic sanity check (mirrors unit-physics.html)');
       test('68ft/VF0.95 wire: 40m good, 20m danger, matching the physics unit tests', () => {
         setSlider(doc, '[data-wire-len="0"]', 68);
-        setSlider(doc, '[data-wire-vf="0"]', 0.95);
+        setSlider(doc, '#globalVfSlider', 0.95); // VF is global now (decision 4 amendment) — hidden while the Settings tab isn't active, but still a live input that responds to events
         const rows = Array.from(doc.querySelectorAll('#dnTable tr')).slice(1); // skip header
         const row40 = rows.find(r => r.cells[0].textContent === '40m');
         const row20 = rows.find(r => r.cells[0].textContent === '20m');
@@ -113,7 +147,7 @@
       suite('Danger-zone tolerance slider');
       test('widening tolerance can flip a marginal verdict to danger live', () => {
         setSlider(doc, '[data-wire-len="0"]', 68);
-        setSlider(doc, '[data-wire-vf="0"]', 0.95);
+        setSlider(doc, '#globalVfSlider', 0.95); // VF is global now (decision 4 amendment) — hidden while the Settings tab isn't active, but still a live input that responds to events
         setSlider(doc, '#toleranceSlider', 0.01);
         const rows1 = Array.from(doc.querySelectorAll('#dnTable tr')).slice(1);
         const row10_narrow = rows1.find(r => r.cells[0].textContent === '10m').textContent;

@@ -105,12 +105,43 @@
         assert.close(pts[0].f, 1.8, 1e-9);
         assert.close(pts[pts.length - 1].f, 29.7, 1e-9);
       });
-      test('each point\'s dist matches distanceToNearestEven(nValue(...))', () => {
+      test('each point\'s envelope matches |sin(n*pi/2)| (display-only smooth curve, not the raw distance metric)', () => {
         const pts = DN.sweepCurve(68, 0.95, 7.0, 7.3, 3);
         pts.forEach(p => {
-          const expected = DN.distanceToNearestEven(DN.nValue(68, p.f, 0.95));
-          assert.close(p.dist, expected, 1e-9);
+          const n = DN.nValue(68, p.f, 0.95);
+          const expected = Math.abs(Math.sin(n * Math.PI / 2));
+          assert.close(p.envelope, expected, 1e-9);
         });
+      });
+      test('envelope is 0 exactly at a node (n=2) and 1 exactly at an antinode (n=1)', () => {
+        // L chosen so n=1 at f=1 and n=2 at f=2, using vf=1: n = L*f/492.
+        // steps=1 (not 0) avoids a 0/0 division inside sweepCurve's i/steps term.
+        const L = 492;
+        const atAntinode = DN.sweepCurve(L, 1, 1, 1, 1)[0];
+        const atNode = DN.sweepCurve(L, 1, 2, 2, 1)[0];
+        assert.close(atAntinode.envelope, 1, 1e-9);
+        assert.close(atNode.envelope, 0, 1e-9);
+      });
+
+      suite('verdictSegments — vertical chart shading helper');
+      test('a wire with no danger/marginal crossings in range returns a single "good" segment', () => {
+        // L=492ft at vf=1 gives n=1 exactly at f=1MHz; over a narrow range
+        // tight around that antinode, everything should classify "good".
+        const segs = DN.verdictSegments(492, 1, 0.98, 1.02, 0.07, 50);
+        assert.equal(segs.length, 1);
+        assert.equal(segs[0].verdict, 'good');
+      });
+      test('segments are contiguous and cover the full requested range', () => {
+        const segs = DN.verdictSegments(68, 0.95, 1.8, 29.7, 0.07, 500);
+        assert.close(segs[0].f0, 1.8, 1e-6);
+        assert.close(segs[segs.length - 1].f1, 29.7, 1e-6);
+        for (let i = 1; i < segs.length; i++) {
+          assert.isTrue(segs[i].f0 >= segs[i - 1].f1, 'segments should not overlap or go backwards');
+        }
+      });
+      test('flags a known danger crossing: 68ft/VF0.95 wire has a danger segment inside the 20m band', () => {
+        const segs = DN.verdictSegments(68, 0.95, 14.0, 14.35, 0.07, 200);
+        assert.isTrue(segs.some(s => s.verdict === 'danger'), 'expected at least one danger segment on 20m for this wire (see the realistic bandVerdict case above)');
       });
 
       suite('overallVerdict — worst-case rollup across bands');

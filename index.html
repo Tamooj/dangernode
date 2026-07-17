@@ -192,6 +192,18 @@
   }
   .dn-field label .dn-val{ color:var(--amber); font-weight:600; }
   .dn-field input[type="range"]{ width:100%; accent-color:var(--amber); }
+  .dn-field-paired{ display:flex; align-items:center; gap:8px; }
+  .dn-field-paired input[type="range"]{ flex:1 1 auto; }
+  .dn-field-paired input[type="number"]{
+    flex:0 0 72px;
+    background:#12150f;
+    border:1px solid var(--border);
+    color:var(--paper);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    padding:5px 6px;
+    border-radius:3px;
+  }
   .dn-wire-card{
     border:1px solid var(--border);
     border-radius:4px;
@@ -394,8 +406,22 @@
   <div class="dn-tabs" id="dnTabs">
     <button class="dn-tab active" data-tab="efhw">EFHW</button>
     <button class="dn-tab" data-tab="random">Random Wire</button>
+    <button class="dn-tab" data-tab="settings">Settings</button>
   </div>
 
+  <div class="dn-panel" id="dnSettingsPanel" style="display:none; margin-bottom:14px;">
+    <div class="dn-panel-label">Global Settings</div>
+    <div class="dn-field">
+      <label>Velocity Factor <span class="dn-val" id="lblGlobalVf"></span></label>
+      <div class="dn-field-paired">
+        <input type="range" id="globalVfSlider" min="0.80" max="1.00" step="0.01">
+        <input type="number" id="globalVfNumber" min="0.80" max="1.00" step="0.01">
+      </div>
+    </div>
+    <div class="dn-hint">Applies to every wire in both tabs, plus the Counterpoise Reference and Suggest Lengths panels. Bare wire is commonly ~0.95; insulated/jacketed wire can run lower. Wire length stays per-wire — see the EFHW / Random Wire tabs.</div>
+  </div>
+
+  <div id="dnCalcContent">
   <div class="dn-quickcheck" id="dnQuickCheck">
     <div class="dn-quickcheck-label">Quick Check — single length + frequency</div>
     <div class="dn-quickcheck-field">
@@ -456,7 +482,7 @@
             <div class="dn-counterpoise-value" id="cpValue"></div>
           </div>
         </div>
-        <div class="dn-hint">Free-space quarter-wave rule of thumb (<code>246 / f_MHz</code>), VF-adjustable via wire 1's VF. Not part of the danger-zone calculation — no ground/counterpoise coupling is modeled.</div>
+        <div class="dn-hint">Free-space quarter-wave rule of thumb (<code>246 / f_MHz</code>), VF-adjustable via the global VF (Settings tab). Not part of the danger-zone calculation — no ground/counterpoise coupling is modeled.</div>
       </div>
 
       <div class="dn-panel dn-suggest-box">
@@ -472,9 +498,10 @@
           </div>
         </div>
         <div id="suggestList"></div>
-        <div class="dn-hint">Lengths that land the reference frequency exactly on a voltage-antinode (odd n), using wire 1's VF. "Apply" loads the length into wire 1. Other verdict columns show the tradeoff against your other shown bands.</div>
+        <div class="dn-hint">Lengths that land the reference frequency exactly on a voltage-antinode (odd n), using the global VF (Settings tab). "Apply" loads the length into wire 1. Other verdict columns show the tradeoff against your other shown bands.</div>
       </div>
     </div>
+  </div>
   </div>
   <div class="dn-version" id="dnVersion"></div>
 </div>
@@ -489,14 +516,47 @@
   // ---------- Pure helpers, merged into window.DN so tests/*.html can load
   // the real index.html in a hidden iframe and exercise these directly,
   // same pattern as the physics.js functions already on window.DN. ----------
+  // Chart curve, for display only — NOT used for verdict classification
+  // (that stays on distanceToNearestEven/classifyDistance, unchanged).
+  // |sin(n*pi/2)| is 0 at even n (node) and 1 at odd n (antinode), same
+  // orientation as distanceToNearestEven, but smooth: the raw distance
+  // metric is a triangle wave (linear V-corners at every node), which for
+  // a wire with several half-waves across the HF spectrum renders as a
+  // jagged sawtooth rather than the standing-wave envelope shape people
+  // expect from the classic physics picture.
   function sweepCurve(lengthFt, vf, fLowMHz, fHighMHz, steps) {
     const pts = [];
     for (let i = 0; i <= steps; i++) {
       const f = fLowMHz + (fHighMHz - fLowMHz) * (i / steps);
       const n = DN.nValue(lengthFt, f, vf);
-      pts.push({ f, dist: DN.distanceToNearestEven(n) });
+      pts.push({ f, envelope: Math.abs(Math.sin(n * Math.PI / 2)) });
     }
     return pts;
+  }
+
+  // Contiguous good/marginal/danger frequency segments for one wire, for
+  // vertical chart shading (replaces the old horizontal traffic-light
+  // bands, which only made sense for a single curve against a fixed
+  // y-threshold — doesn't generalize to comparing multiple wires).
+  function verdictSegments(lengthFt, vf, fLowMHz, fHighMHz, tolerance, steps) {
+    const pts = [];
+    for (let i = 0; i <= steps; i++) {
+      const f = fLowMHz + (fHighMHz - fLowMHz) * (i / steps);
+      const dist = DN.distanceToNearestEven(DN.nValue(lengthFt, f, vf));
+      pts.push({ f, verdict: DN.classifyDistance(dist, tolerance) });
+    }
+    const segments = [];
+    let cur = null;
+    pts.forEach(p => {
+      if (cur && cur.verdict === p.verdict) {
+        cur.f1 = p.f;
+      } else {
+        if (cur) segments.push(cur);
+        cur = { f0: p.f, f1: p.f, verdict: p.verdict };
+      }
+    });
+    if (cur) segments.push(cur);
+    return segments;
   }
 
   function overallVerdict(lengthFt, bands, vf, tolerance) {
@@ -523,7 +583,7 @@
     return out;
   }
 
-  window.DN = Object.assign(window.DN || {}, { sweepCurve, overallVerdict, suggestLengths });
+  window.DN = Object.assign(window.DN || {}, { sweepCurve, verdictSegments, overallVerdict, suggestLengths });
 
   // ---------- App state ----------
   const STORAGE_KEY = 'dangernode-state-v1';
@@ -536,11 +596,13 @@
     return {
       unit: 'ft',
       tab: 'efhw',
+      view: 'calc',
+      globalVf: 0.95,
       tolerance: 0.07,
       activeBands: DN.BANDS.map(b => b.name),
       wires: {
-        efhw: [ { lengthFt: 68, vf: 0.95 } ],
-        random: [ { lengthFt: 84, vf: 0.95 } ],
+        efhw: [ { lengthFt: 68 } ],
+        random: [ { lengthFt: 84 } ],
       },
       cpFreqMHz: 7.15,
       suggestBand: '40m',
@@ -557,9 +619,15 @@
       const saved = JSON.parse(raw);
       // Shallow-merge with defaults so a missing/added field in an older
       // saved blob can't crash the app or silently drop new features.
+      // Pre-2026-07-16 saves had per-wire vf; fall back to wire 1's old vf
+      // as the new globalVf so upgrading doesn't silently reset it to
+      // default. Wire objects themselves may still carry a stale `vf` key
+      // after this merge — harmless, nothing reads it anymore.
+      const oldVf = saved.wires && saved.wires.efhw && saved.wires.efhw[0] && saved.wires.efhw[0].vf;
       return {
         ...d,
         ...saved,
+        globalVf: saved.globalVf !== undefined ? saved.globalVf : (oldVf !== undefined ? oldVf : d.globalVf),
         wires: { efhw: saved.wires && saved.wires.efhw || d.wires.efhw, random: saved.wires && saved.wires.random || d.wires.random },
         quickCheck: { ...d.quickCheck, ...(saved.quickCheck || {}) },
       };
@@ -610,11 +678,10 @@
           </div>
           <div class="dn-field">
             <label>Length <span class="dn-val" id="lblLen${i}">${fmt(toDisplay(w.lengthFt))} ${uLabel()}</span></label>
-            <input type="range" min="${min}" max="${max}" step="${step}" value="${toDisplay(w.lengthFt).toFixed(6)}" data-wire-len="${i}">
-          </div>
-          <div class="dn-field">
-            <label>VF <span class="dn-val" id="lblVf${i}">${fmt(w.vf, 2)}</span></label>
-            <input type="range" min="${VF_BOUNDS[0]}" max="${VF_BOUNDS[1]}" step="${VF_BOUNDS[2]}" value="${w.vf.toFixed(6)}" data-wire-vf="${i}">
+            <div class="dn-field-paired">
+              <input type="range" min="${min}" max="${max}" step="${step}" value="${toDisplay(w.lengthFt).toFixed(6)}" data-wire-len="${i}">
+              <input type="number" min="${min}" max="${max}" step="${step}" value="${fmt(toDisplay(w.lengthFt))}" data-wire-len-num="${i}">
+            </div>
           </div>
         </div>
       `;
@@ -626,22 +693,25 @@
 
   function bindWireInputs(){
     const panel = document.getElementById('dnWirePanel');
+    function setWireLength(i, displayValue){
+      const [min,,] = lenRange();
+      const [,max,] = lenRange();
+      const clamped = Math.min(max, Math.max(min, displayValue));
+      activeWires()[i].lengthFt = toFeet(clamped);
+      panel.querySelector(`[data-wire-len="${i}"]`).value = clamped.toFixed(6);
+      panel.querySelector(`[data-wire-len-num="${i}"]`).value = fmt(clamped);
+      document.getElementById(`lblLen${i}`).textContent = `${fmt(clamped)} ${uLabel()}`;
+      renderOutputs();
+      saveState();
+    }
     panel.querySelectorAll('[data-wire-len]').forEach(inp => {
-      inp.addEventListener('input', e => {
-        const i = +e.target.dataset.wireLen;
-        activeWires()[i].lengthFt = toFeet(parseFloat(e.target.value));
-        document.getElementById(`lblLen${i}`).textContent = `${fmt(parseFloat(e.target.value))} ${uLabel()}`;
-        renderOutputs();
-        saveState();
-      });
+      inp.addEventListener('input', e => setWireLength(+e.target.dataset.wireLen, parseFloat(e.target.value)));
     });
-    panel.querySelectorAll('[data-wire-vf]').forEach(inp => {
+    panel.querySelectorAll('[data-wire-len-num]').forEach(inp => {
       inp.addEventListener('input', e => {
-        const i = +e.target.dataset.wireVf;
-        activeWires()[i].vf = parseFloat(e.target.value);
-        document.getElementById(`lblVf${i}`).textContent = fmt(parseFloat(e.target.value), 2);
-        renderOutputs();
-        saveState();
+        const v = parseFloat(e.target.value);
+        if (isNaN(v)) return;
+        setWireLength(+e.target.dataset.wireLenNum, v);
       });
     });
     const addBtn = document.getElementById('addWireBtn');
@@ -649,7 +719,7 @@
       const wires = activeWires();
       if (wires.length >= 3) return;
       const last = wires[wires.length - 1];
-      wires.push({ lengthFt: last.lengthFt, vf: last.vf });
+      wires.push({ lengthFt: last.lengthFt });
       renderInputs();
       renderOutputs();
       saveState();
@@ -699,6 +769,20 @@
   }
 
   function renderInputs(){
+    document.getElementById('dnSettingsPanel').style.display = state.view === 'settings' ? 'block' : 'none';
+    document.getElementById('dnCalcContent').style.display = state.view === 'settings' ? 'none' : 'block';
+    // Sync active-button classes to state on initial load (they otherwise
+    // only update inside their own click handlers, so a state restored
+    // from localStorage that differs from the hardcoded HTML defaults
+    // would show the wrong button highlighted until the user clicks one).
+    root.querySelectorAll('#dnTabs button').forEach(b => {
+      b.classList.toggle('active', b.dataset.tab === (state.view === 'settings' ? 'settings' : state.tab));
+    });
+    root.querySelectorAll('#unitToggle button').forEach(b => b.classList.toggle('active', b.dataset.unit === state.unit));
+    document.getElementById('lblGlobalVf').textContent = fmt(state.globalVf, 2);
+    document.getElementById('globalVfSlider').value = state.globalVf;
+    document.getElementById('globalVfNumber').value = fmt(state.globalVf, 2);
+
     renderWirePanel();
     document.getElementById('lblTolerance').textContent = fmt(state.tolerance, 2);
     document.getElementById('toleranceSlider').value = state.tolerance;
@@ -721,24 +805,39 @@
   function renderChart(){
     const svg = document.getElementById('dnChart');
     const W = 760, H = 340, marginL = 34, marginR = 14, marginT = 14, marginB = 34;
+    const tickH = 6; // per-wire danger tick row height when comparing >1 wire
     const plot = { marginL, marginT, w: W - marginL - marginR, h: H - marginT - marginB };
     const wires = activeWires();
     const tol = state.tolerance;
+    const vf = state.globalVf;
 
     let svgHtml = '';
 
-    // Background traffic-light zones (danger at bottom, good at top).
-    const zoneDanger = { y0: 0, y1: tol };
-    const zoneMarginal = { y0: tol, y1: Math.min(1, tol * 2) };
-    const zoneGood = { y0: Math.min(1, tol * 2), y1: 1 };
-    [
-      [zoneDanger, 'rgba(217,99,74,0.16)'],
-      [zoneMarginal, 'rgba(255,167,38,0.12)'],
-      [zoneGood, 'rgba(127,176,105,0.10)'],
-    ].forEach(([z, color]) => {
-      const y1 = distToY(z.y0, plot), y0 = distToY(z.y1, plot);
-      svgHtml += `<rect x="${marginL}" y="${y0}" width="${plot.w}" height="${y1-y0}" fill="${color}"/>`;
-    });
+    const SEG_COLOR = { danger: 'rgba(217,99,74,0.22)', marginal: 'rgba(255,167,38,0.16)', good: null };
+
+    if (wires.length === 1) {
+      // Single wire: full-height vertical shading, danger + marginal both
+      // visible — no overlap to worry about.
+      const segs = DN.verdictSegments(wires[0].lengthFt, vf, FREQ_MIN, FREQ_MAX, tol, 1000);
+      segs.forEach(s => {
+        const color = SEG_COLOR[s.verdict];
+        if (!color) return;
+        const x0 = freqToX(s.f0, plot), x1 = freqToX(s.f1, plot);
+        svgHtml += `<rect x="${x0}" y="${plot.marginT}" width="${Math.max(1,x1-x0)}" height="${plot.h}" fill="${color}"/>`;
+      });
+    } else {
+      // Multiple wires: full-height shading from every wire would overlap
+      // into visual noise, so each wire gets a thin danger-only tick row
+      // (in its own color) stacked along the bottom instead.
+      wires.forEach((w, i) => {
+        const segs = DN.verdictSegments(w.lengthFt, vf, FREQ_MIN, FREQ_MAX, tol, 1000);
+        const rowY = plot.marginT + plot.h - tickH * (wires.length - i);
+        segs.filter(s => s.verdict === 'danger').forEach(s => {
+          const x0 = freqToX(s.f0, plot), x1 = freqToX(s.f1, plot);
+          svgHtml += `<rect x="${x0}" y="${rowY}" width="${Math.max(1,x1-x0)}" height="${tickH}" fill="${WIRE_COLORS[i]}" opacity="0.55"/>`;
+        });
+      });
+    }
 
     // Active band vertical highlights + labels.
     activeBandObjs().forEach(b => {
@@ -758,31 +857,32 @@
     }
     svgHtml += `<text x="${marginL-6}" y="${distToY(0,plot)+3}" font-size="9" fill="#8a8168" font-family="IBM Plex Mono" text-anchor="end">0</text>`;
     svgHtml += `<text x="${marginL-6}" y="${distToY(1,plot)+3}" font-size="9" fill="#8a8168" font-family="IBM Plex Mono" text-anchor="end">1</text>`;
-    svgHtml += `<text x="10" y="${plot.marginT+plot.h/2}" font-size="9" fill="#8a8168" font-family="IBM Plex Mono" text-anchor="middle" transform="rotate(-90 10 ${plot.marginT+plot.h/2})">distance from node</text>`;
+    svgHtml += `<text x="10" y="${plot.marginT+plot.h/2}" font-size="9" fill="#8a8168" font-family="IBM Plex Mono" text-anchor="middle" transform="rotate(-90 10 ${plot.marginT+plot.h/2})">← node · antinode →</text>`;
 
     // Per-wire curves.
     wires.forEach((w, i) => {
-      const pts = DN.sweepCurve(w.lengthFt, w.vf, FREQ_MIN, FREQ_MAX, 500);
-      const path = pts.map((p, idx) => `${idx === 0 ? 'M' : 'L'}${freqToX(p.f, plot).toFixed(2)},${distToY(p.dist, plot).toFixed(2)}`).join(' ');
+      const pts = DN.sweepCurve(w.lengthFt, vf, FREQ_MIN, FREQ_MAX, 500);
+      const path = pts.map((p, idx) => `${idx === 0 ? 'M' : 'L'}${freqToX(p.f, plot).toFixed(2)},${distToY(p.envelope, plot).toFixed(2)}`).join(' ');
       svgHtml += `<path d="${path}" fill="none" stroke="${WIRE_COLORS[i]}" stroke-width="2"/>`;
     });
 
     svg.innerHTML = svgHtml;
 
     const legend = wires.map((w, i) => `
-      <div class="item"><span class="swatch-line" style="background:${WIRE_COLORS[i]}"></span>Wire ${i+1}: ${fmt(toDisplay(w.lengthFt))} ${uLabel()}, VF ${fmt(w.vf,2)}</div>
-    `).join('');
+      <div class="item"><span class="swatch-line" style="background:${WIRE_COLORS[i]}"></span>Wire ${i+1}: ${fmt(toDisplay(w.lengthFt))} ${uLabel()}</div>
+    `).join('') + `<div class="item">VF ${fmt(vf,2)} (global — see Settings tab)</div>`;
     document.getElementById('dnChartLegend').innerHTML = legend;
   }
 
   function renderTable(){
     const wires = activeWires();
     const bands = activeBandObjs();
+    const vf = state.globalVf;
     let html = '<tr><th>Band</th><th>Freq (MHz)</th>' + wires.map((w,i) => `<th>Wire ${i+1}</th>`).join('') + '</tr>';
     bands.forEach(b => {
       html += `<tr><td>${b.name}</td><td>${b.lowMHz.toFixed(3)}–${b.highMHz.toFixed(3)}</td>`;
       wires.forEach(w => {
-        const v = DN.bandVerdict(w.lengthFt, b, w.vf, state.tolerance);
+        const v = DN.bandVerdict(w.lengthFt, b, vf, state.tolerance);
         html += `<td>${verdictBadge(v.verdict)}</td>`;
       });
       html += '</tr>';
@@ -792,9 +892,7 @@
 
   function renderCounterpoise(){
     if (state.tab !== 'random') return;
-    const wires = activeWires();
-    const vf = wires[0] ? wires[0].vf : 1;
-    const cpFt = DN.counterpoiseFt(state.cpFreqMHz, vf);
+    const cpFt = DN.counterpoiseFt(state.cpFreqMHz, state.globalVf);
     document.getElementById('cpValue').textContent = `${fmt(toDisplay(cpFt))} ${uLabel()}`;
   }
 
@@ -809,8 +907,7 @@
   function renderSuggestList(){
     const band = DN.BANDS.find(b => b.name === state.suggestBand);
     if (!band) { document.getElementById('suggestList').innerHTML = ''; return; }
-    const wires = activeWires();
-    const vf = wires[0] ? wires[0].vf : 0.95;
+    const vf = state.globalVf;
     const suggestions = DN.suggestLengths(state.suggestFreq, vf, LEN_BOUNDS_FT[1]);
     const bands = activeBandObjs();
     const html = suggestions.map(s => {
@@ -861,10 +958,31 @@
   document.getElementById('dnTabs').addEventListener('click', e => {
     const btn = e.target.closest('button');
     if (!btn) return;
-    state.tab = btn.dataset.tab;
+    if (btn.dataset.tab === 'settings') {
+      state.view = 'settings';
+    } else {
+      state.tab = btn.dataset.tab;
+      state.view = 'calc';
+    }
     root.querySelectorAll('#dnTabs button').forEach(b => b.classList.toggle('active', b === btn));
     render();
     saveState();
+  });
+
+  function setGlobalVf(v){
+    const clamped = Math.min(VF_BOUNDS[1], Math.max(VF_BOUNDS[0], v));
+    state.globalVf = clamped;
+    document.getElementById('globalVfSlider').value = clamped;
+    document.getElementById('globalVfNumber').value = fmt(clamped, 2);
+    document.getElementById('lblGlobalVf').textContent = fmt(clamped, 2);
+    renderOutputs();
+    saveState();
+  }
+  document.getElementById('globalVfSlider').addEventListener('input', e => setGlobalVf(parseFloat(e.target.value)));
+  document.getElementById('globalVfNumber').addEventListener('input', e => {
+    const v = parseFloat(e.target.value);
+    if (isNaN(v)) return;
+    setGlobalVf(v);
   });
 
   document.getElementById('toleranceSlider').addEventListener('input', e => {
