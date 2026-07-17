@@ -15,12 +15,13 @@ See [docs/spec.md](docs/spec.md) for the full design spec.
 ## Status
 
 Core physics module (`js/physics.js`, `js/bands.js`) plus the full v1
-UI — tabs, the live SVG chart, wire/VF/tolerance sliders, band toggle
-chips, Quick Check, Suggest Lengths, counterpoise reference, unit
-conversion, localStorage persistence — are implemented, covered by
-`tests/unit-physics.html` (23/23 passing). See [CLAUDE.md](CLAUDE.md) for
-the current-status detail and [docs/spec.md](docs/spec.md) for the full
-spec.
+UI — tabs, a Settings tab (global VF), the live SVG antinode/node chart
+with vertical danger-zone shading, wire-length/tolerance sliders (each
+paired with a synced number input), band toggle chips, Quick Check,
+Suggest Lengths, counterpoise reference, unit conversion, localStorage
+persistence — are implemented, covered by `tests/unit-physics.html`
+(27/27 passing). See [CLAUDE.md](CLAUDE.md) for the current-status detail
+and [docs/spec.md](docs/spec.md) for the full spec.
 
 ## License
 

@@ -46,8 +46,8 @@ node/antinode mapping), not in v1.
 ## Core physics model
 - Effective half-wavelength of the wire: `hw = (492 * VF) / f_MHz` (feet), or
   metric equivalent. VF (velocity factor) defaults ~0.95–0.98 for
-  insulated/silicone-jacketed wire, **per-wire adjustable** (see VF decision
-  below).
+  insulated/silicone-jacketed wire, **globally adjustable** — see decision 4,
+  amended after v1 playtesting.
 - For a fixed wire length `L`, electrical length in half-waves at frequency
   `f`: `n = L / hw(f)`
 - Odd integer `n` → feedpoint at voltage antinode → high Z, good match.
@@ -145,8 +145,11 @@ need to chase counterpoise-coupling fidelity to match them — a labeled
 is the antinode/node envelope curve with current band selections marked on
 it live. Inputs are adjustable directly against that chart:
 - Wire length: one slider per candidate wire (1–3 wires, decision 3), live-
-  updates the curve's band markers as dragged, no submit button.
-- VF: secondary slider per wire (decision 4).
+  updates the curve's band markers as dragged, no submit button. Paired with
+  a synced number input so exact values aren't limited to slider precision.
+- VF: single global slider + paired number input on a dedicated Settings
+  tab (decision 4, amended after v1 playtesting — was per-wire in the
+  original v1 design).
 - Band selection: toggle chips (40m / 20m / 10m / etc.) to declutter to
   just today's operations plan.
 - Counterpoise length (Random Wire tab only): informational display next to
