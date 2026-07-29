@@ -10,7 +10,7 @@ file.
 
 `../pota-wire-geometry-calc` is the same author's other antenna tool.
 DangerNode intentionally matches its conventions:
-- Vanilla HTML/CSS/JS, single-file-per-concern, no dependencies
+- Vanilla HTML/CSS/JS, no dependencies
 - Dark khaki/amber "field gear" visual theme (CSS custom properties in
   `index.html`: `--bg`, `--khaki`, `--amber`, `--green-signal`, `--red-warn`)
 - Pure functions exposed on a `window` namespace inside `index.html`
@@ -22,14 +22,25 @@ DangerNode intentionally matches its conventions:
 
 When in doubt about a convention (file layout, test structure, naming), check
 how the sibling project does it first rather than inventing a new pattern.
+Note: `pota-wire-geometry-calc` has no `js/` folder at all — it's always
+been a single `index.html` with zero external script tags. DangerNode
+briefly deviated from that (a `js/physics.js` + `js/bands.js` split) and
+has since been folded back to match — see the 2026-07-28 entry below for
+why that split turned out to be a real-world liability, not just a style
+nit. Don't reintroduce a `js/`-file split without solving that problem
+first.
 
-## Current status (as of 2026-07-16)
+## Current status (as of 2026-07-28)
 
-Core physics module and the full v1 UI are implemented. `js/physics.js`
-(n = L/hw(f) math, danger-zone classification) and `js/bands.js` (default US
-General/Extra band table) are exercised by `tests/unit-physics.html` —
-27/27 passing, including a realistic sanity check (68ft EFHW-ish wire: clean
-on 40m, correctly flags the classic 20m 2nd-harmonic node).
+Core physics module and the full v1 UI are implemented. `index.html` is a
+single self-contained file — no `js/` folder, no `<script src>` tags at
+all (see the 2026-07-28 entry below). The physics functions (n = L/hw(f)
+math, danger-zone classification) and the default US General/Extra band
+table are inline `<script>` blocks near the top of the file, both merging
+into `window.DN` the same way the UI-support functions further down do.
+Exercised by `tests/unit-physics.html` — 27/27 passing, including a
+realistic sanity check (68ft EFHW-ish wire: clean on 40m, correctly flags
+the classic 20m 2nd-harmonic node).
 
 `index.html` is the full app: EFHW / Random Wire tabs, a Settings tab, the
 SVG antinode/node chart, the band verdict table, ft/m unit toggle,
@@ -38,8 +49,8 @@ informational counterpoise reference (decision 5), a Quick Check panel
 (input mode 3), a Suggest Lengths panel (input mode 2 — inverse-solves
 `L = n * hw(f)` for a target band/frequency, with a one-click apply), and
 localStorage persistence of all state. UI logic lives inline in
-`index.html`'s own `<script>` tag (matching the sibling project's
-single-file-per-concern convention); a handful of pure UI-support functions
+`index.html`'s own `<script>` tag, in the same single file as the physics
+and band-table code above it; a handful of pure UI-support functions
 (`sweepCurve`, `verdictSegments`, `overallVerdict`, `suggestLengths`) are
 merged into `window.DN` alongside the physics functions so they're testable
 the same way.
@@ -70,6 +81,41 @@ Post-playtest revisions (2026-07-16), driven by real usage feedback:
   `<input type="range">` paired with a synced `<input type="number">`
   (`.dn-field-paired` CSS) — sliders alone couldn't hit exact values. Quick
   Check already had number-only inputs and is unchanged.
+
+Further revisions (2026-07-28), from a first round of real mobile testing:
+- **Band region markers on the chart were nearly invisible** (7% opacity
+  fill, 18% opacity border) — fixed by inverting the approach: since these
+  rects paint on top of the danger/marginal/good shading, a strong fill
+  would wash out that more important signal, so the fill stays minimal and
+  the boundary is instead carried by a bright dashed stroke + bold label.
+- **Danger-zone tolerance moved from the calc-tab left column into the
+  Settings tab**, next to global VF — same `#toleranceSlider`/`#lblTolerance`
+  IDs, just relocated markup, no JS binding changes.
+- **Y axis relabeled "High Z" / "Low Z"** instead of unitless `0`/`1` ticks
+  and a "node/antinode" title — names what the axis means (feedpoint
+  impedance character) without implying a real measured value. Chart's
+  left margin widened 34→42px so the longer labels don't clip.
+- **`index.html` is now a single file with zero `<script src>` tags** —
+  the `js/physics.js` + `js/bands.js` split (present since the very first
+  commit) turned out to be a real mobile-reliability bug, not just a style
+  choice: opening the file via Chrome on Android (via a file manager's
+  "open with," which can hand off a `content://` URI instead of a true
+  `file://` path) silently failed to load the two sibling `<script src>`
+  files. `window.DN` never got populated, the app's own init script threw
+  immediately on the first `DN.BANDS`/`DN.hwFt` reference, and the page
+  rendered its static shell with *no dynamic values anywhere* — no console
+  visible to the user, so it just looked broken with no explanation. Fixed
+  by inlining both files' contents directly into `index.html`'s `<script>`
+  block (three back-to-back IIFEs: physics, bands, app — same
+  `window.DN` merge pattern as before, zero logic changes) and deleting
+  the `js/` folder entirely. This also re-aligns with
+  `pota-wire-geometry-calc`'s actual convention (see "Sibling project"
+  above) and with the original spec's "single HTML/JS bundle" field-
+  usability requirement, which the `js/`-file split had quietly drifted
+  away from. **Don't split JS into separate files again** without solving
+  the mobile file:// problem first — test on an actual phone via a raw
+  file open, not just a local `python -m http.server`, before assuming a
+  multi-file layout is safe.
 
 `tests/system-app.html` (DOM-driving system tests, mirroring the sibling
 project's file of the same name) has new tests for the Settings tab and the

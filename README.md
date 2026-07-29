@@ -14,7 +14,8 @@ See [docs/spec.md](docs/spec.md) for the full design spec.
 
 ## Status
 
-Core physics module (`js/physics.js`, `js/bands.js`) plus the full v1
+Core physics module (inlined in `index.html`'s own `<script>` — see
+CLAUDE.md for why) plus the full v1
 UI — tabs, a Settings tab (global VF), the live SVG antinode/node chart
 with vertical danger-zone shading, wire-length/tolerance sliders (each
 paired with a synced number input), band toggle chips, Quick Check,

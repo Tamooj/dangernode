@@ -503,16 +503,109 @@
   <div class="dn-version" id="dnVersion"></div>
 </div>
 
-<script src="js/physics.js"></script>
-<script src="js/bands.js"></script>
 <script>
+// Core antinode/node math. Pure functions only — no DOM access — so this
+// can be loaded standalone by the unit tests via the real index.html.
+// Inlined here (not a separate js/physics.js) so the whole app is one
+// file with no relative-path script loading to break — mobile Chrome's
+// file:// handling doesn't reliably resolve sibling <script src> files
+// (e.g. when opened via a content:// URI from a file manager), which
+// silently killed every value on the page. See git log 2026-07-28.
+(function (global) {
+  function hwFt(freqMHz, vf) {
+    return (492 * vf) / freqMHz;
+  }
+
+  function nValue(lengthFt, freqMHz, vf) {
+    return lengthFt / hwFt(freqMHz, vf);
+  }
+
+  function distanceToNearestEven(n) {
+    const nearestEven = Math.round(n / 2) * 2;
+    return Math.abs(n - nearestEven);
+  }
+
+  function classifyDistance(dist, tolerance) {
+    if (dist < tolerance) return 'danger';
+    // Amber buffer is 2x the danger tolerance — a legible middle band for
+    // the traffic-light UI, not a physically derived threshold.
+    if (dist < tolerance * 2) return 'marginal';
+    return 'good';
+  }
+
+  // n(f) = L*f / (492*vf) is linear in f, so across a band's frequency range
+  // the distance-to-nearest-even-integer function is unimodal (a "tent"
+  // between consecutive even integers) — its minimum over the band can only
+  // occur at one of the two band edges, or be exactly 0 if an even integer
+  // falls inside the range. No need to sample interior frequencies.
+  function bandVerdict(lengthFt, band, vf, tolerance) {
+    const nLow = nValue(lengthFt, band.lowMHz, vf);
+    const nHigh = nValue(lengthFt, band.highMHz, vf);
+    const lo = Math.min(nLow, nHigh);
+    const hi = Math.max(nLow, nHigh);
+    const firstEvenAtOrAbove = Math.ceil(lo / 2) * 2;
+    const straddlesNode = firstEvenAtOrAbove <= hi;
+    const minDist = straddlesNode
+      ? 0
+      : Math.min(distanceToNearestEven(nLow), distanceToNearestEven(nHigh));
+
+    return {
+      band: band.name,
+      nLow,
+      nHigh,
+      minDist,
+      verdict: classifyDistance(minDist, tolerance),
+    };
+  }
+
+  // Free-space quarter-wave reference length for the Random Wire tab's
+  // informational counterpoise display — see docs/spec.md decision 5.
+  // Deliberately NOT fed into nValue/bandVerdict.
+  function counterpoiseFt(freqMHz, vf) {
+    return (246 * (vf || 1)) / freqMHz;
+  }
+
+  global.DN = Object.assign(global.DN || {}, {
+    hwFt,
+    nValue,
+    distanceToNearestEven,
+    classifyDistance,
+    bandVerdict,
+    counterpoiseFt,
+  });
+})(window);
+
+// Default US General/Extra HF band edges (decision 1, docs/spec.md).
+// Plain data array by design — adding WARC-only or phone-only sub-bands
+// later is a one-line change, not a redesign.
+//
+// 60m is deliberately omitted: it's a set of discrete channels, not a
+// continuous range, and doesn't fit the low/high-edge sweep model used by
+// DN.bandVerdict. Add it as a zero-width band (lowMHz === highMHz per
+// channel) if/when needed rather than forcing it into a range shape.
+(function (global) {
+  const BANDS = [
+    { name: '160m', lowMHz: 1.800, highMHz: 2.000 },
+    { name: '80m', lowMHz: 3.500, highMHz: 4.000 },
+    { name: '40m', lowMHz: 7.000, highMHz: 7.300 },
+    { name: '30m', lowMHz: 10.100, highMHz: 10.150 },
+    { name: '20m', lowMHz: 14.000, highMHz: 14.350 },
+    { name: '17m', lowMHz: 18.068, highMHz: 18.168 },
+    { name: '15m', lowMHz: 21.000, highMHz: 21.450 },
+    { name: '12m', lowMHz: 24.890, highMHz: 24.990 },
+    { name: '10m', lowMHz: 28.000, highMHz: 29.700 },
+  ];
+
+  global.DN = Object.assign(global.DN || {}, { BANDS });
+})(window);
+
 (function(){
   const APP_VERSION = 'v0.1.0';
-  const APP_BUILD = 2;
+  const APP_BUILD = 3;
 
   // ---------- Pure helpers, merged into window.DN so tests/*.html can load
   // the real index.html in a hidden iframe and exercise these directly,
-  // same pattern as the physics.js functions already on window.DN. ----------
+  // same pattern as the physics functions above. ----------
   // Chart curve, for display only — NOT used for verdict classification
   // (that stays on distanceToNearestEven/classifyDistance, unchanged).
   // |sin(n*pi/2)| is 0 at even n (node) and 1 at odd n (antinode), same
