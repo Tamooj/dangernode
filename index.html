@@ -839,12 +839,17 @@
       });
     }
 
-    // Active band vertical highlights + labels.
+    // Active band vertical highlights + labels. Fill stays near-zero on
+    // purpose — these rects paint on top of the danger/marginal/good
+    // shading below, and a strong fill here would wash out that more
+    // important color signal. Boundaries are carried by a bright dashed
+    // stroke + label instead, so band markers stay legible without
+    // muddying the risk colors.
     activeBandObjs().forEach(b => {
       const x0 = freqToX(b.lowMHz, plot), x1 = freqToX(b.highMHz, plot);
-      svgHtml += `<rect x="${x0}" y="${plot.marginT}" width="${Math.max(1,x1-x0)}" height="${plot.h}" fill="rgba(201,184,150,0.07)" stroke="rgba(201,184,150,0.18)" stroke-width="1"/>`;
+      svgHtml += `<rect x="${x0}" y="${plot.marginT}" width="${Math.max(1,x1-x0)}" height="${plot.h}" fill="rgba(237,234,224,0.05)" stroke="rgba(237,234,224,0.5)" stroke-width="1.25" stroke-dasharray="3,2"/>`;
       const labelX = (x0 + x1) / 2;
-      svgHtml += `<text x="${labelX}" y="${plot.marginT + 11}" font-size="9" fill="#8a8168" font-family="IBM Plex Mono" text-anchor="middle">${b.name}</text>`;
+      svgHtml += `<text x="${labelX}" y="${plot.marginT + 12}" font-size="10" font-weight="600" fill="#edeae0" font-family="IBM Plex Mono" text-anchor="middle">${b.name}</text>`;
     });
 
     // Frequency axis line + gridline labels.
