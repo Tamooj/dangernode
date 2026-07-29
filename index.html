@@ -419,6 +419,12 @@
       </div>
     </div>
     <div class="dn-hint">Applies to every wire in both tabs, plus the Counterpoise Reference and Suggest Lengths panels. Bare wire is commonly ~0.95; insulated/jacketed wire can run lower. Wire length stays per-wire — see the EFHW / Random Wire tabs.</div>
+
+    <div class="dn-field" style="margin-top:14px;">
+      <label>Danger-Zone Tolerance <span class="dn-val" id="lblTolerance"></span> in n</label>
+      <input type="range" id="toleranceSlider" min="0.01" max="0.30" step="0.01">
+    </div>
+    <div class="dn-hint">How close to an even-integer node counts as "danger." Amber (marginal) buffer is 2x this value. Applies everywhere — chart shading, band verdicts, Quick Check.</div>
   </div>
 
   <div id="dnCalcContent">
@@ -442,15 +448,6 @@
   <div class="dn-grid">
     <div>
       <div class="dn-panel" id="dnWirePanel"></div>
-
-      <div class="dn-panel" style="margin-top:12px;">
-        <div class="dn-panel-label">Danger-Zone Tolerance</div>
-        <div class="dn-field">
-          <label>±<span class="dn-val" id="lblTolerance"></span> in n</label>
-          <input type="range" id="toleranceSlider" min="0.01" max="0.30" step="0.01">
-        </div>
-        <div class="dn-hint">How close to an even-integer node counts as "danger." Amber (marginal) buffer is 2x this value.</div>
-      </div>
 
       <div class="dn-panel" style="margin-top:12px;">
         <div class="dn-panel-label">Bands Shown</div>
@@ -804,7 +801,7 @@
 
   function renderChart(){
     const svg = document.getElementById('dnChart');
-    const W = 760, H = 340, marginL = 34, marginR = 14, marginT = 14, marginB = 34;
+    const W = 760, H = 340, marginL = 42, marginR = 14, marginT = 14, marginB = 34;
     const tickH = 6; // per-wire danger tick row height when comparing >1 wire
     const plot = { marginL, marginT, w: W - marginL - marginR, h: H - marginT - marginB };
     const wires = activeWires();
@@ -860,9 +857,8 @@
       svgHtml += `<line x1="${x}" y1="${plot.marginT}" x2="${x}" y2="${axisY}" stroke="#2a3128" stroke-width="1"/>`;
       svgHtml += `<text x="${x}" y="${H-marginB+14}" font-size="9" fill="#8a8168" font-family="IBM Plex Mono" text-anchor="middle">${f}</text>`;
     }
-    svgHtml += `<text x="${marginL-6}" y="${distToY(0,plot)+3}" font-size="9" fill="#8a8168" font-family="IBM Plex Mono" text-anchor="end">0</text>`;
-    svgHtml += `<text x="${marginL-6}" y="${distToY(1,plot)+3}" font-size="9" fill="#8a8168" font-family="IBM Plex Mono" text-anchor="end">1</text>`;
-    svgHtml += `<text x="10" y="${plot.marginT+plot.h/2}" font-size="9" fill="#8a8168" font-family="IBM Plex Mono" text-anchor="middle" transform="rotate(-90 10 ${plot.marginT+plot.h/2})">← node · antinode →</text>`;
+    svgHtml += `<text x="${marginL-6}" y="${distToY(0,plot)+3}" font-size="9" fill="#8a8168" font-family="IBM Plex Mono" text-anchor="end">Low Z</text>`;
+    svgHtml += `<text x="${marginL-6}" y="${distToY(1,plot)+3}" font-size="9" fill="#8a8168" font-family="IBM Plex Mono" text-anchor="end">High Z</text>`;
 
     // Per-wire curves.
     wires.forEach((w, i) => {
