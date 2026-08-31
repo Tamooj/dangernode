@@ -526,7 +526,7 @@
 
 <script>
 // Core antinode/node math. Pure functions only — no DOM access — so this
-// can be loaded standalone by the unit tests via the real index.html.
+// can be loaded standalone by the unit tests via the real dangernode.html.
 // Inlined here (not a separate js/physics.js) so the whole app is one
 // file with no relative-path script loading to break — mobile Chrome's
 // file:// handling doesn't reliably resolve sibling <script src> files
@@ -625,7 +625,7 @@
   const APP_BUILD = 4;
 
   // ---------- Pure helpers, merged into window.DN so tests/*.html can load
-  // the real index.html in a hidden iframe and exercise these directly,
+  // the real dangernode.html in a hidden iframe and exercise these directly,
   // same pattern as the physics functions above. ----------
   // Chart curve, for display only — NOT used for verdict classification
   // (that stays on distanceToNearestEven/classifyDistance, unchanged).

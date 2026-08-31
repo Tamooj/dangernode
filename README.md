@@ -12,9 +12,16 @@ Offline-first PWA, no backend, no login, no framework. Static HTML/CSS/JS.
 
 See [docs/spec.md](docs/spec.md) for the full design spec.
 
+## Try it
+
+Open [`dangernode.html`](dangernode.html) directly in any browser — no
+build step, no dependencies, no server required. It's a single
+self-contained file (see CLAUDE.md for why), so it's also the only file
+you need if you're copying it onto a phone for offline field use.
+
 ## Status
 
-Core physics module (inlined in `index.html`'s own `<script>` — see
+Core physics module (inlined in `dangernode.html`'s own `<script>` — see
 CLAUDE.md for why) plus the full v1
 UI — tabs, a Settings tab (global VF), the live SVG antinode/node chart
 with vertical danger-zone shading, wire-length/tolerance sliders (each

@@ -12,11 +12,12 @@ file.
 DangerNode intentionally matches its conventions:
 - Vanilla HTML/CSS/JS, no dependencies
 - Dark khaki/amber "field gear" visual theme (CSS custom properties in
-  `index.html`: `--bg`, `--khaki`, `--amber`, `--green-signal`, `--red-warn`)
-- Pure functions exposed on a `window` namespace inside `index.html`
+  `dangernode.html`: `--bg`, `--khaki`, `--amber`, `--green-signal`,
+  `--red-warn`)
+- Pure functions exposed on a `window` namespace inside `dangernode.html`
   (`window.DN` here, `window.WGC` there) so unit tests can load the real
-  `index.html` via a hidden iframe instead of keeping a parallel copy of the
-  logic that can drift out of sync
+  `dangernode.html` via a hidden iframe instead of keeping a parallel copy
+  of the logic that can drift out of sync
 - `tests/harness.js` is copied verbatim from that repo — same
   zero-dependency `suite()`/`test()`/`assert` pattern
 
@@ -28,12 +29,13 @@ briefly deviated from that (a `js/physics.js` + `js/bands.js` split) and
 has since been folded back to match — see the 2026-07-28 entry below for
 why that split turned out to be a real-world liability, not just a style
 nit. Don't reintroduce a `js/`-file split without solving that problem
-first.
+first. One deliberate naming divergence: DangerNode's entry file is
+`dangernode.html`, not `index.html` — see the 2026-08-31 entry below.
 
 ## Current status (as of 2026-07-28)
 
-Core physics module and the full v1 UI are implemented. `index.html` is a
-single self-contained file — no `js/` folder, no `<script src>` tags at
+Core physics module and the full v1 UI are implemented. `dangernode.html`
+is a single self-contained file — no `js/` folder, no `<script src>` tags at
 all (see the 2026-07-28 entry below). The physics functions (n = L/hw(f)
 math, danger-zone classification) and the default US General/Extra band
 table are inline `<script>` blocks near the top of the file, both merging
@@ -42,14 +44,14 @@ Exercised by `tests/unit-physics.html` — 27/27 passing, including a
 realistic sanity check (68ft EFHW-ish wire: clean on 40m, correctly flags
 the classic 20m 2nd-harmonic node).
 
-`index.html` is the full app: EFHW / Random Wire tabs, a Settings tab, the
+`dangernode.html` is the full app: EFHW / Random Wire tabs, a Settings tab, the
 SVG antinode/node chart, the band verdict table, ft/m unit toggle,
 danger-zone tolerance slider, band toggle chips, the Random Wire tab's
 informational counterpoise reference (decision 5), a Quick Check panel
 (input mode 3), a Suggest Lengths panel (input mode 2 — inverse-solves
 `L = n * hw(f)` for a target band/frequency, with a one-click apply), and
 localStorage persistence of all state. UI logic lives inline in
-`index.html`'s own `<script>` tag, in the same single file as the physics
+`dangernode.html`'s own `<script>` tag, in the same single file as the physics
 and band-table code above it; a handful of pure UI-support functions
 (`sweepCurve`, `verdictSegments`, `overallVerdict`, `suggestLengths`) are
 merged into `window.DN` alongside the physics functions so they're testable
@@ -130,6 +132,20 @@ Further revisions (2026-07-28), from a first round of real mobile testing:
   to a value that doesn't exactly match a preset un-checks all three
   (verified via direct DOM manipulation, including a reload to confirm
   the checked state restores correctly from localStorage).
+
+Renamed `index.html` → `dangernode.html` (2026-08-31): the generic
+filename was a real problem for offline field use — copying multiple
+single-page tools onto a phone for zero-connectivity access means several
+files all called `index.html` sitting in different folders, which is hard
+to tell apart in a phone's file picker/recents view even with folders in
+place. Every reference above written before this date still says
+`index.html` because that was its name at the time; anything describing
+the *current* file uses `dangernode.html`. Test files
+(`tests/unit-physics.html`, `tests/system-app.html`) and their iframe
+`src` were updated to match — nothing else changed. **This convention
+(project-named entry file instead of `index.html`) is intended to apply
+to sibling projects too eventually, but that's deferred debt — don't go
+rename `pota-wire-geometry-calc/index.html` unless separately asked.**
 
 `tests/system-app.html` (DOM-driving system tests, mirroring the sibling
 project's file of the same name) has new tests for the Settings tab and the
