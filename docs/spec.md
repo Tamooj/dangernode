@@ -74,7 +74,7 @@ node/antinode mapping), not in v1.
    **Addendum, 2026-07-28**: added a "Tuner Comfort Zone" radio group
    (Settings tab) as a labeled shortcut into this same slider — "No tuner
    (must be resonant)" / "Basic tuner" / "Wide-range tuner (G90-class)",
-   currently 0.03 / 0.07 / 0.18. No new metric or calculation; the
+   currently 0.18 / 0.07 / 0.03. No new metric or calculation; the
    underlying tolerance value and everything driven by it (shading,
    verdicts, Quick Check) is unchanged. **These three numbers are
    placeholder estimates, not derived from any real impedance model** —
@@ -82,9 +82,18 @@ node/antinode mapping), not in v1.
    R+jX model, explicitly out of scope, see decision on Smith-chart
    modeling below). The user intends to empirically cross-check a few
    lengths against a NanoVNA and their tuner's actual match range, then
-   report back real numbers to replace these three. Don't treat 0.03/0.07/
-   0.18 as validated — they're only there so the UI has something
-   reasonable to show before that calibration happens.
+   report back real numbers to replace these three. Don't treat
+   0.18/0.07/0.03 as validated — they're only there so the UI has
+   something reasonable to show before that calibration happens.
+   **Correction, same day**: the mapping originally shipped backwards
+   (No tuner=0.03, Wide-range=0.18) — caught in review. `tolerance` is the
+   radius of the danger zone around each node, so *larger* tolerance =
+   *wider* danger zone. No tuner can't compensate for any real mismatch,
+   so nearly everything except true resonance is genuinely risky for it —
+   that wants a wide danger zone, i.e. a large tolerance. A wide-range
+   tuner absorbs most mismatches and only fails very close to the actual
+   node — that wants a narrow danger zone, i.e. a small tolerance. Fixed
+   to No tuner=0.18, Wide-range=0.03.
 
 3. **Multi-wire / switching comparison**: **In v1.** This means 2–3
    *simultaneous* length sliders on the same chart for comparing candidate

@@ -123,15 +123,25 @@ Further revisions (2026-07-28), from a first round of real mobile testing:
   "Basic tuner" / "Wide-range tuner (G90-class)". These are pure UI
   shortcuts that call the same `setTolerance()` the slider itself uses —
   no new calculation, no change to shading/verdict logic. Current values
-  (0.03 / 0.07 / 0.18) are **placeholder estimates**, explicitly not
-  derived from any impedance model (see decision 2 addendum,
-  docs/spec.md) — the user plans to cross-check a few lengths against a
-  NanoVNA and their actual tuner's match range and report back real
-  numbers. `syncTolerancePresetRadios()` keeps the radios in sync in both
-  directions: clicking a preset moves the slider, and dragging the slider
-  to a value that doesn't exactly match a preset un-checks all three
-  (verified via direct DOM manipulation, including a reload to confirm
-  the checked state restores correctly from localStorage).
+  are **placeholder estimates**, explicitly not derived from any
+  impedance model (see decision 2 addendum, docs/spec.md) — the user
+  plans to cross-check a few lengths against a NanoVNA and their actual
+  tuner's match range and report back real numbers.
+  `syncTolerancePresetRadios()` keeps the radios in sync in both
+  directions: clicking a preset moves the slider, and dragging the
+  slider to a value that doesn't exactly match a preset un-checks all
+  three (verified via direct DOM manipulation, including a reload to
+  confirm the checked state restores correctly from localStorage).
+  **Direction bug caught and fixed same day**: the initial mapping
+  (No tuner=0.03, Wide-range=0.18) had it backwards. `tolerance` sets the
+  radius of the danger zone around each node (`classifyDistance`: `dist <
+  tolerance` → danger), so a *larger* tolerance means a *wider* red zone.
+  A tuner-less setup can't compensate for any real mismatch, so nearly
+  everything except true resonance is risky for it — that's a wide danger
+  zone, i.e. a *large* tolerance. A wide-range tuner absorbs most
+  mismatches and only fails very close to the actual node — a narrow
+  danger zone, i.e. a *small* tolerance. Corrected mapping: No tuner=0.18,
+  Basic=0.07 (unchanged), Wide-range=0.03.
 
 Renamed `index.html` → `dangernode.html` (2026-08-31): the generic
 filename was a real problem for offline field use — copying multiple
