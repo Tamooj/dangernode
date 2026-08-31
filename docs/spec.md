@@ -71,6 +71,20 @@ node/antinode mapping), not in v1.
    visible slider, rather than forcing the user to pick with no default.
    Try it as-is first; only add fidelity (e.g. asymmetric tolerance,
    per-band tolerance) if the flat default demonstrably gets in the way.
+   **Addendum, 2026-07-28**: added a "Tuner Comfort Zone" radio group
+   (Settings tab) as a labeled shortcut into this same slider — "No tuner
+   (must be resonant)" / "Basic tuner" / "Wide-range tuner (G90-class)",
+   currently 0.03 / 0.07 / 0.18. No new metric or calculation; the
+   underlying tolerance value and everything driven by it (shading,
+   verdicts, Quick Check) is unchanged. **These three numbers are
+   placeholder estimates, not derived from any real impedance model** —
+   there's no principled n-to-SWR conversion (that would require an actual
+   R+jX model, explicitly out of scope, see decision on Smith-chart
+   modeling below). The user intends to empirically cross-check a few
+   lengths against a NanoVNA and their tuner's actual match range, then
+   report back real numbers to replace these three. Don't treat 0.03/0.07/
+   0.18 as validated — they're only there so the UI has something
+   reasonable to show before that calibration happens.
 
 3. **Multi-wire / switching comparison**: **In v1.** This means 2–3
    *simultaneous* length sliders on the same chart for comparing candidate

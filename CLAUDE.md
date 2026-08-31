@@ -116,6 +116,20 @@ Further revisions (2026-07-28), from a first round of real mobile testing:
   the mobile file:// problem first — test on an actual phone via a raw
   file open, not just a local `python -m http.server`, before assuming a
   multi-file layout is safe.
+- **"Tuner Comfort Zone" radio group added to the Settings tab** (three
+  options, next to the tolerance slider): "No tuner (must be resonant)" /
+  "Basic tuner" / "Wide-range tuner (G90-class)". These are pure UI
+  shortcuts that call the same `setTolerance()` the slider itself uses —
+  no new calculation, no change to shading/verdict logic. Current values
+  (0.03 / 0.07 / 0.18) are **placeholder estimates**, explicitly not
+  derived from any impedance model (see decision 2 addendum,
+  docs/spec.md) — the user plans to cross-check a few lengths against a
+  NanoVNA and their actual tuner's match range and report back real
+  numbers. `syncTolerancePresetRadios()` keeps the radios in sync in both
+  directions: clicking a preset moves the slider, and dragging the slider
+  to a value that doesn't exactly match a preset un-checks all three
+  (verified via direct DOM manipulation, including a reload to confirm
+  the checked state restores correctly from localStorage).
 
 `tests/system-app.html` (DOM-driving system tests, mirroring the sibling
 project's file of the same name) has new tests for the Settings tab and the
