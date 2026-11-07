@@ -8,8 +8,9 @@ decisions made during project kickoff and the course corrections since.
 the scope was narrowed. See "Model correction" below. In short: the danger
 zones are the neighbourhoods of **half-wave multiples (integer n)**, not even
 n; the separate EFHW tab is gone (an EFHW is just a random wire whose length
-happens to be a half-wave multiple on its lowest band); the chart is bounded
-to the user's selected bands; fonts are embedded.
+happens to be a half-wave multiple on its lowest band); half-wave multiples
+can be marked on the chart; fonts are embedded. (A per-band-panel chart was
+tried and reverted the same day — see "Output / visualization".)
 
 ## One-liner
 A browser tool that takes a wire length and the bands you plan to work, and
@@ -123,8 +124,7 @@ there. The three things that changed: `distanceToNearestEven` became
    the same chart for comparing candidate lengths side by side — NOT a
    saved/persisted inventory of named wires (deferred to v1.1). With several
    wires, full-height shading would overlap into noise, so each wire gets a
-   thin danger-only tick row in its own color along the bottom of each
-   band panel.
+   thin danger-only tick row in its own color along the bottom of the chart.
 
 4. **VF handling**: a single **global** setting (Settings tab); length stays
    per-wire. Originally per-wire; amended after v1 playtesting because the
@@ -182,24 +182,28 @@ need to chase counterpoise-coupling fidelity to match them — a labeled
    field-use case.
 
 ## Output / visualization
-**The chart is the app, not a secondary view.** It is **bounded to the
-user's selected bands**: each selected band gets an equal-width panel with
-its own local frequency scale, side by side, and the gaps between bands are
-left out. (A continuous 1.8–29.7 MHz axis made 30m ~1px wide and 160m ~5px;
-as equal panels every band is wide enough to see exactly where a half-wave
-multiple falls inside it. Selecting fewer bands makes the remaining panels
-wider.)
+**The chart is the app, not a secondary view.** It is one continuous
+**1.8–29.7 MHz sweep** with the user's selected bands outlined on it, so a
+wire's *whole* pattern is visible at once: each hump of the envelope is one
+half-wave, the high-Z peaks line up with the half-wave multiples, and you can
+see how a length's multiples relate across bands and harmonics.
 
-Each panel shows:
+*Tried and reverted (2026-11-07):* bounding the axis to the selected bands as
+equal-width side-by-side panels. It made each band legible (at full HF scale
+30m is ~1px wide) but destroyed the whole-length picture that makes the
+relationships easy to see — in hands-on testing the continuous sweep was
+clearly the better UX. Narrow bands are instead kept visible by a 4px minimum
+outline width. Don't re-attempt the panel layout without a way to keep the
+overall envelope in view.
+
+The chart shows:
 - the wire's envelope curve (`|cos(nπ)|`, High Z at top / Low Z at bottom);
 - vertical danger (red) / marginal (amber) shading;
+- selected bands as bright dashed outlines with the band name above the plot
+  (low-opacity fill, so it doesn't wash out the risk shading);
 - optionally (checkbox, on by default) **half-wave multiples** as dashed
-  vertical lines at `f = k·492·VF/L` (labeled `n=k` for a single wire) —
-  the exact center of each red zone. A multiple that sits just *outside* a
-  band but whose red zone reaches into it is shown as a triangle on the
-  panel edge (with its `n` and frequency for a single wire), so a red zone is
-  never unexplained;
-- band name and edge frequencies.
+  vertical lines at `f = k·492·VF/L` across the whole axis (labeled `n=k` for
+  a single wire) — the exact center of each red zone.
 
 Inputs are adjustable directly against the chart:
 - Wire length: one slider per candidate wire (1–3 wires), live-updating, no
@@ -207,7 +211,8 @@ Inputs are adjustable directly against the chart:
   rewritten while the user is typing; an unparseable or out-of-range entry
   is flagged red and ignored until it's valid (it snaps back on blur).
 - VF: single global slider + number input on the Settings tab.
-- Band selection: toggle chips; also the chart's x axis (above).
+- Band selection: toggle chips (which bands are outlined on the chart and
+  listed in the table).
 - Counterpoise reference: informational panel, not a chart input.
 
 A compact table below the chart gives numeric backup (freq range, verdict

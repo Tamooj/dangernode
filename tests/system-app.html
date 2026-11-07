@@ -177,43 +177,54 @@
         assert.isTrue(rowFor('30m').textContent.includes('GOOD'), `30m row: "${rowFor('30m').textContent}"`);
       });
 
-      suite('Chart is bounded to the selected bands');
-      test('one panel per active band, labelled with its name', () => {
-        const panels = doc.querySelectorAll('#dnChart rect[fill="#171b17"]');
-        assert.equal(panels.length, 9, 'expected one panel per active band (all 9 by default)');
+      suite('Chart shows the whole HF sweep, with selected bands outlined');
+      test('no per-band panels — one continuous axis labeled across the full range', () => {
+        assert.equal(doc.querySelectorAll('#dnChart rect[fill="#171b17"]').length, 0, 'per-band panels were reverted');
         const labels = Array.from(doc.querySelectorAll('#dnChart text')).map(t => t.textContent);
-        ['160m', '40m', '10m'].forEach(n => assert.isTrue(labels.includes(n), `expected a "${n}" panel label`));
+        ['5', '10', '15', '20', '25', 'MHz'].forEach(l => assert.isTrue(labels.includes(l), `expected axis label "${l}"`));
       });
-      test('deselecting a band chip removes its panel; panels widen to fill the chart', () => {
-        const widthBefore = parseFloat(doc.querySelector('#dnChart rect[fill="#171b17"]').getAttribute('width'));
+      test('every selected band gets a dashed outline and a name label', () => {
+        assert.equal(doc.querySelectorAll('#dnChart rect[stroke-dasharray="3,2"]').length, 9, 'expected one outline per active band (all 9 by default)');
+        const labels = Array.from(doc.querySelectorAll('#dnChart text')).map(t => t.textContent);
+        ['160m', '40m', '10m'].forEach(n => assert.isTrue(labels.includes(n), `expected a "${n}" label`));
+      });
+      test('narrow bands are still visible: no outline is thinner than 4px', () => {
+        Array.from(doc.querySelectorAll('#dnChart rect[stroke-dasharray="3,2"]')).forEach(r => {
+          assert.isTrue(parseFloat(r.getAttribute('width')) >= 4, 'band outline too thin to see');
+        });
+      });
+      test('deselecting a band chip removes its outline and label; reselecting restores them', () => {
         const chip = doc.querySelector('#bandChips [data-band="30m"]');
         chip.click();
-        const panels = doc.querySelectorAll('#dnChart rect[fill="#171b17"]');
-        assert.equal(panels.length, 8);
-        assert.isTrue(parseFloat(panels[0].getAttribute('width')) > widthBefore, 'expected remaining panels to get wider');
+        assert.equal(doc.querySelectorAll('#dnChart rect[stroke-dasharray="3,2"]').length, 8);
         assert.isFalse(Array.from(doc.querySelectorAll('#dnChart text')).some(t => t.textContent === '30m'));
         chip.click();
-        assert.equal(doc.querySelectorAll('#dnChart rect[fill="#171b17"]').length, 9);
+        assert.equal(doc.querySelectorAll('#dnChart rect[stroke-dasharray="3,2"]').length, 9);
       });
 
       suite('Half-wave multiple markers');
-      test('checkbox on: dashed marker lines for in-band multiples; off: none', () => {
-        // 66ft @ VF 0.95 puts n=2 at ~14.2 MHz, inside 20m.
-        setSlider(doc, '[data-wire-len="0"]', 66);
+      test('checkbox on: one dashed line per half-wave multiple across the whole axis; off: none', () => {
+        // 68ft @ VF 0.95: multiples at ~6.87, 13.75, 20.62, 27.49 MHz — all outside the selected
+        // bands' edges or near them, and all must be drawn since the axis is the full sweep.
+        setSlider(doc, '[data-wire-len="0"]', 68);
         const box = doc.getElementById('showHalfWaves');
         if (!box.checked) { box.checked = true; box.dispatchEvent(new Event('change', { bubbles: true })); }
-        assert.isTrue(doc.querySelectorAll('#dnChart line[stroke-dasharray="4,3"]').length > 0, 'expected at least one half-wave marker line');
+        const expected = win.DN.halfWaveFreqs(68, 0.95, 1.8, 29.7).length;
+        assert.equal(expected, 4);
+        assert.equal(doc.querySelectorAll('#dnChart line[stroke-dasharray="4,3"]').length, expected);
+        const labels = Array.from(doc.querySelectorAll('#dnChart text')).map(t => t.textContent);
+        assert.isTrue(labels.includes('n=1') && labels.includes('n=4'), 'expected n= labels for a single wire');
         box.checked = false;
         box.dispatchEvent(new Event('change', { bubbles: true }));
         assert.equal(doc.querySelectorAll('#dnChart line[stroke-dasharray="4,3"]').length, 0);
-        assert.equal(doc.querySelectorAll('#dnChart polygon').length, 0, 'edge triangles are markers too');
         box.checked = true;
         box.dispatchEvent(new Event('change', { bubbles: true }));
       });
-      test('a multiple just outside a band whose red zone reaches in gets an edge triangle', () => {
-        // 68ft: n=1 at 6.87 MHz is below the 40m band edge (7.0) but its zone spills into 40m.
-        setSlider(doc, '[data-wire-len="0"]', 68);
-        assert.isTrue(doc.querySelectorAll('#dnChart polygon').length > 0, 'expected at least one edge triangle');
+      test('multiples are drawn whether or not a band is selected there', () => {
+        // Deselect 40m and 20m; the n=1 and n=2 lines (6.87, 13.75 MHz) must remain.
+        ['40m', '20m'].forEach(n => doc.querySelector(`#bandChips [data-band="${n}"]`).click());
+        assert.equal(doc.querySelectorAll('#dnChart line[stroke-dasharray="4,3"]').length, 4);
+        ['40m', '20m'].forEach(n => doc.querySelector(`#bandChips [data-band="${n}"]`).click());
       });
 
       suite('Multi-wire comparison (decision 3)');
