@@ -25,25 +25,34 @@
       test('hwFt at VF=1 matches the 492/f constant', () => {
         assert.close(DN.hwFt(4.92, 1), 100, 1e-9);
       });
-      test('a wire exactly one half-wave long gives n=1 (odd, antinode)', () => {
+      test('a wire exactly one half-wave long gives n=1', () => {
         assert.close(DN.nValue(100, 4.92, 1), 1, 1e-9);
       });
-      test('a wire exactly one full wave long gives n=2 (even, node)', () => {
+      test('a wire exactly one full wave long gives n=2', () => {
         assert.close(DN.nValue(100, 9.84, 1), 2, 1e-9);
       });
 
-      suite('distanceToNearestEven');
-      test('sits exactly on a node (n=0)', () => {
-        assert.close(DN.distanceToNearestEven(0), 0, 1e-9);
+      suite('distanceToNearestHalfWave — 0 = on a high-Z half-wave multiple, 0.5 = farthest away');
+      test('n=0 is on a half-wave multiple', () => {
+        assert.close(DN.distanceToNearestHalfWave(0), 0, 1e-9);
       });
-      test('sits exactly on an antinode (n=1) — max possible distance', () => {
-        assert.close(DN.distanceToNearestEven(1), 1, 1e-9);
+      test('n=1 is on a half-wave multiple (end-fed: EVERY integer n is high-Z, odd or even)', () => {
+        assert.close(DN.distanceToNearestHalfWave(1), 0, 1e-9);
       });
-      test('sits exactly on a node (n=2)', () => {
-        assert.close(DN.distanceToNearestEven(2), 0, 1e-9);
+      test('n=2 is on a half-wave multiple', () => {
+        assert.close(DN.distanceToNearestHalfWave(2), 0, 1e-9);
       });
-      test('midway case (n=1.5)', () => {
-        assert.close(DN.distanceToNearestEven(1.5), 0.5, 1e-9);
+      test('n=1.5 (odd quarter-wave, high current) is as far away as possible: 0.5', () => {
+        assert.close(DN.distanceToNearestHalfWave(1.5), 0.5, 1e-9);
+      });
+      test('n=0.5 is also 0.5 from the nearest multiple', () => {
+        assert.close(DN.distanceToNearestHalfWave(0.5), 0.5, 1e-9);
+      });
+      test('n=2.2 is 0.2 from n=2', () => {
+        assert.close(DN.distanceToNearestHalfWave(2.2), 0.2, 1e-9);
+      });
+      test('symmetric around an integer: n=2.8 is 0.2 from n=3', () => {
+        assert.close(DN.distanceToNearestHalfWave(2.8), 0.2, 1e-9);
       });
 
       suite('classifyDistance — traffic-light thresholds (tolerance=0.07)');
@@ -54,7 +63,7 @@
         assert.equal(DN.classifyDistance(0.1, 0.07), 'marginal');
       });
       test('beyond 2x tolerance is good', () => {
-        assert.equal(DN.classifyDistance(0.5, 0.07), 'good');
+        assert.equal(DN.classifyDistance(0.4, 0.07), 'good');
       });
       test('boundary at exactly 1x tolerance falls into marginal, not danger', () => {
         assert.equal(DN.classifyDistance(0.07, 0.07), 'marginal');
@@ -64,7 +73,7 @@
       });
 
       suite('bandVerdict — synthetic bands (VF=1, L=100ft, n=f/4.92)');
-      test('band straddling an even integer is forced danger even if both edges are far from it', () => {
+      test('band straddling an integer n is forced danger even if both edges are far from it', () => {
         // n ranges 1.8 -> 2.2: both edges 0.2 from n=2, well outside tolerance,
         // but n=2 falls strictly inside the band's frequency range.
         const band = { name: 'synthetic-straddle', lowMHz: 1.8 * 4.92, highMHz: 2.2 * 4.92 };
@@ -72,30 +81,69 @@
         assert.close(v.minDist, 0, 1e-9);
         assert.equal(v.verdict, 'danger');
       });
-      test('band entirely between nodes, both edges far from even, is good', () => {
-        // n ranges 1.2 -> 1.4: nearest even to both is 2, distances 0.8 and 0.6.
-        const band = { name: 'synthetic-clear', lowMHz: 1.2 * 4.92, highMHz: 1.4 * 4.92 };
+      test('band straddling an ODD integer is danger too (end-fed: odd and even half-wave multiples are both high-Z)', () => {
+        const band = { name: 'synthetic-straddle-odd', lowMHz: 0.8 * 4.92, highMHz: 1.2 * 4.92 };
+        assert.equal(DN.bandVerdict(100, band, 1, 0.07).verdict, 'danger');
+      });
+      test('band centred between half-wave multiples, both edges far from any integer, is good', () => {
+        // n ranges 1.4 -> 1.6: distances 0.4 and 0.4.
+        const band = { name: 'synthetic-clear', lowMHz: 1.4 * 4.92, highMHz: 1.6 * 4.92 };
         const v = DN.bandVerdict(100, band, 1, 0.07);
-        assert.close(v.minDist, 0.6, 1e-9);
+        assert.close(v.minDist, 0.4, 1e-9);
         assert.equal(v.verdict, 'good');
+      });
+      test('band whose edge nearly touches an integer (without straddling it) is danger', () => {
+        // n ranges 1.02 -> 1.3: closest approach 0.02 at the low edge.
+        const band = { name: 'synthetic-edge', lowMHz: 1.02 * 4.92, highMHz: 1.3 * 4.92 };
+        const v = DN.bandVerdict(100, band, 1, 0.07);
+        assert.close(v.minDist, 0.02, 1e-9);
+        assert.equal(v.verdict, 'danger');
       });
 
-      suite('bandVerdict — realistic case: 68ft EFHW-ish wire, VF=0.95, real BANDS table');
-      test('68ft lands 40m cleanly on an antinode (good) — this is the length it was cut for', () => {
-        const band40 = DN.BANDS.find(b => b.name === '40m');
-        const v = DN.bandVerdict(68, band40, 0.95, 0.07);
+      suite('bandVerdict — realistic cases, VF=0.95, real BANDS table');
+      test('68ft is a half-wave on 40m (n≈1.04): high-Z, danger', () => {
+        const v = DN.bandVerdict(68, DN.BANDS.find(b => b.name === '40m'), 0.95, 0.07);
+        assert.equal(v.verdict, 'danger');
+        assert.close(v.nLow, 1.0, 0.06);
+      });
+      test('68ft is a full wave on 20m (n≈2.04-2.09): high-Z, danger', () => {
+        const v = DN.bandVerdict(68, DN.BANDS.find(b => b.name === '20m'), 0.95, 0.07);
+        assert.equal(v.verdict, 'danger');
+      });
+      test('68ft sits near n=1.5 on 30m: far from any half-wave multiple, good', () => {
+        const v = DN.bandVerdict(68, DN.BANDS.find(b => b.name === '30m'), 0.95, 0.07);
         assert.equal(v.verdict, 'good');
       });
-      test('68ft lands 20m on the classic 2nd-harmonic current-node gotcha (danger)', () => {
-        const band20 = DN.BANDS.find(b => b.name === '20m');
-        const v = DN.bandVerdict(68, band20, 0.95, 0.07);
-        assert.equal(v.verdict, 'danger');
+      test('84ft (the default wire) lands 40m at n≈1.3: good', () => {
+        const v = DN.bandVerdict(84, DN.BANDS.find(b => b.name === '40m'), 0.95, 0.07);
+        assert.equal(v.verdict, 'good');
       });
 
       suite('BANDS data table');
       test('default band list has 9 entries and excludes channelized 60m', () => {
         assert.equal(DN.BANDS.length, 9);
         assert.isTrue(DN.BANDS.every(b => b.name !== '60m'), '60m should not be in the default range-based table');
+      });
+
+      suite('halfWaveFreqs — where the wire is an exact multiple of a half-wave');
+      test('L=492ft, VF=1 gives n=k exactly at k MHz', () => {
+        const hs = DN.halfWaveFreqs(492, 1, 1.5, 4.5);
+        assert.equal(hs.length, 3);
+        assert.equal(hs[0].n, 2); assert.close(hs[0].f, 2, 1e-9);
+        assert.equal(hs[2].n, 4); assert.close(hs[2].f, 4, 1e-9);
+      });
+      test('range edges are inclusive', () => {
+        const hs = DN.halfWaveFreqs(492, 1, 2, 3);
+        assert.equal(hs.length, 2);
+      });
+      test('never reports n=0 and returns nothing for a range between multiples', () => {
+        assert.equal(DN.halfWaveFreqs(492, 1, 0.1, 0.9).length, 0);
+        assert.equal(DN.halfWaveFreqs(492, 1, 1.2, 1.8).length, 0);
+      });
+      test('every reported frequency really is an integer n', () => {
+        DN.halfWaveFreqs(68, 0.95, 1.8, 29.7).forEach(h => {
+          assert.close(DN.nValue(68, h.f, 0.95), h.n, 1e-9);
+        });
       });
 
       suite('sweepCurve — UI chart sampling helper');
@@ -105,29 +153,27 @@
         assert.close(pts[0].f, 1.8, 1e-9);
         assert.close(pts[pts.length - 1].f, 29.7, 1e-9);
       });
-      test('each point\'s envelope matches |sin(n*pi/2)| (display-only smooth curve, not the raw distance metric)', () => {
+      test('each point\'s envelope matches |cos(n*pi)| (display-only smooth curve, not the raw distance metric)', () => {
         const pts = DN.sweepCurve(68, 0.95, 7.0, 7.3, 3);
         pts.forEach(p => {
           const n = DN.nValue(68, p.f, 0.95);
-          const expected = Math.abs(Math.sin(n * Math.PI / 2));
-          assert.close(p.envelope, expected, 1e-9);
+          assert.close(p.envelope, Math.abs(Math.cos(n * Math.PI)), 1e-9);
         });
       });
-      test('envelope is 0 exactly at a node (n=2) and 1 exactly at an antinode (n=1)', () => {
-        // L chosen so n=1 at f=1 and n=2 at f=2, using vf=1: n = L*f/492.
-        // steps=1 (not 0) avoids a 0/0 division inside sweepCurve's i/steps term.
-        const L = 492;
-        const atAntinode = DN.sweepCurve(L, 1, 1, 1, 1)[0];
-        const atNode = DN.sweepCurve(L, 1, 2, 2, 1)[0];
-        assert.close(atAntinode.envelope, 1, 1e-9);
-        assert.close(atNode.envelope, 0, 1e-9);
+      test('envelope is 1 (high Z) exactly on a half-wave multiple and 0 (high current) at n=0.5', () => {
+        // vf=1: n = L*f/492. steps=1 (not 0) avoids a 0/0 division in sweepCurve.
+        const atMultiple = DN.sweepCurve(492, 1, 1, 1, 1)[0];   // n=1
+        const atMultiple2 = DN.sweepCurve(492, 1, 2, 2, 1)[0];  // n=2
+        const atQuarter = DN.sweepCurve(246, 1, 1, 1, 1)[0];    // n=0.5
+        assert.close(atMultiple.envelope, 1, 1e-9);
+        assert.close(atMultiple2.envelope, 1, 1e-9);
+        assert.close(atQuarter.envelope, 0, 1e-9);
       });
 
       suite('verdictSegments — vertical chart shading helper');
-      test('a wire with no danger/marginal crossings in range returns a single "good" segment', () => {
-        // L=492ft at vf=1 gives n=1 exactly at f=1MHz; over a narrow range
-        // tight around that antinode, everything should classify "good".
-        const segs = DN.verdictSegments(492, 1, 0.98, 1.02, 0.07, 50);
+      test('a range well clear of any half-wave multiple returns a single "good" segment', () => {
+        // L=492ft at vf=1 gives n=1.5 exactly at f=1.5MHz.
+        const segs = DN.verdictSegments(492, 1, 1.48, 1.52, 0.07, 50);
         assert.equal(segs.length, 1);
         assert.equal(segs[0].verdict, 'good');
       });
@@ -139,15 +185,18 @@
           assert.isTrue(segs[i].f0 >= segs[i - 1].f1, 'segments should not overlap or go backwards');
         }
       });
-      test('flags a known danger crossing: 68ft/VF0.95 wire has a danger segment inside the 20m band', () => {
+      test('a danger segment is centred on each half-wave multiple inside the range', () => {
         const segs = DN.verdictSegments(68, 0.95, 14.0, 14.35, 0.07, 200);
-        assert.isTrue(segs.some(s => s.verdict === 'danger'), 'expected at least one danger segment on 20m for this wire (see the realistic bandVerdict case above)');
+        const wide = DN.verdictSegments(68, 0.95, 13.0, 15.0, 0.07, 400);
+        const f2 = DN.halfWaveFreqs(68, 0.95, 13.0, 15.0)[0].f;
+        assert.isTrue(wide.some(s => s.verdict === 'danger' && s.f0 <= f2 && s.f1 >= f2), 'expected a danger segment covering the n=2 multiple');
+        assert.isTrue(segs.some(s => s.verdict === 'danger'), 'expected danger on the 20m band for this wire');
       });
 
       suite('overallVerdict — worst-case rollup across bands');
       test('worst verdict is danger if any band is danger, even if most are good', () => {
-        // 68ft/VF0.95 is good on 40m but danger on 20m (see realistic case above).
-        const bands = [DN.BANDS.find(b => b.name === '40m'), DN.BANDS.find(b => b.name === '20m')];
+        // 68ft/VF0.95 is danger on 40m (n≈1) but good on 30m (n≈1.5).
+        const bands = [DN.BANDS.find(b => b.name === '40m'), DN.BANDS.find(b => b.name === '30m')];
         const ov = DN.overallVerdict(68, bands, 0.95, 0.07);
         assert.equal(ov.worst, 'danger');
         assert.equal(ov.counts.danger, 1);
@@ -155,19 +204,33 @@
       });
       test('worst verdict is good only if every band is good', () => {
         const bands = [DN.BANDS.find(b => b.name === '40m')];
-        const ov = DN.overallVerdict(68, bands, 0.95, 0.07);
+        const ov = DN.overallVerdict(84, bands, 0.95, 0.07);
         assert.equal(ov.worst, 'good');
       });
 
-      suite('suggestLengths — inverse of nValue, lands refFreq on odd-n antinodes');
-      test('suggested length at n=1 reproduces exactly n=1 at the reference frequency', () => {
-        const [first] = DN.suggestLengths(7.15, 0.95, 500, [1]);
-        assert.close(DN.nValue(first.lengthFt, 7.15, 0.95), 1, 1e-9);
+      suite('suggestLengths — inverse of nValue, lands refFreq midway between half-wave multiples');
+      test('default suggestions are all half-integer n (odd quarter-waves)', () => {
+        const results = DN.suggestLengths(7.15, 0.95, 1000);
+        assert.isTrue(results.length > 0);
+        assert.isTrue(results.every(r => Math.abs((r.n % 1) - 0.5) < 1e-9), 'every suggested n should be k + 0.5');
+      });
+      test('suggested length at n=0.5 reproduces exactly n=0.5 at the reference frequency', () => {
+        const [first] = DN.suggestLengths(7.15, 0.95, 500, [0.5]);
+        assert.close(DN.nValue(first.lengthFt, 7.15, 0.95), 0.5, 1e-9);
+        assert.close(DN.distanceToNearestHalfWave(0.5), 0.5, 1e-9);
       });
       test('respects the maxLengthFt cutoff', () => {
-        const results = DN.suggestLengths(7.15, 0.95, 70, [1, 3, 5, 7, 9]);
+        const results = DN.suggestLengths(7.15, 0.95, 70);
         assert.isTrue(results.every(r => r.lengthFt <= 70), 'no suggested length should exceed the cutoff');
-        assert.isTrue(results.length < 5, 'higher odd-n lengths should be excluded once they exceed the cutoff');
+        assert.isTrue(results.length < 9, 'higher-n lengths should be excluded once they exceed the cutoff');
+      });
+      test('respects the minLengthFt floor', () => {
+        const results = DN.suggestLengths(28.85, 0.95, 200, undefined, 10);
+        assert.isTrue(results.every(r => r.lengthFt >= 10), 'no suggested length should fall below the floor');
+      });
+      test('160m is now reachable (n=0.5 fits under the 200ft cap, unlike the old odd-n scheme)', () => {
+        const results = DN.suggestLengths(1.9, 0.95, 200);
+        assert.isTrue(results.length > 0);
       });
 
       window.runTests();

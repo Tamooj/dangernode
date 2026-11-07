@@ -1,10 +1,24 @@
 # DangerNode
 
-Wire antinode/node danger-zone calculator for end-fed ham antennas (EFHW,
-random wire). Offline-first static PWA — no backend, no build step, no
-framework. Full design spec lives in [docs/spec.md](docs/spec.md); read that
-before making product/scope decisions, it's the source of truth, not this
-file.
+Wire antinode/node danger-zone calculator for **end-fed random wires** (EFRW).
+It shows which wire lengths put a **half-wave multiple** (high feedpoint Z — hard
+to tune) inside the bands you plan to work, so you can avoid them. Offline-first
+static page — no backend, no build step, no framework. Full design spec lives
+in [docs/spec.md](docs/spec.md); read that before making product/scope
+decisions, it's the source of truth, not this file.
+
+## The model in one paragraph (don't re-invert this)
+
+`n = L / hw(f)`, `hw = 492·VF/f`. The wire's far end is open (voltage
+antinode). **Every integer n** — odd *and* even — puts the feedpoint on a
+voltage antinode: high Z, the **danger node**. **Half-integer n** (odd
+quarter-waves) is high-current / low-Z: the good place to be. Danger = distance
+to the nearest *integer* < tolerance; the max possible distance is 0.5. An
+earlier version had even/odd backwards (the center-fed dipole mapping) and
+flagged the 2nd harmonic of a 68 ft wire on 20m as bad. If a "sanity check"
+ever makes an EFHW-style harmonic look like a node *to be avoided in error*,
+re-read this paragraph — and note an EFHW sits *on* these nodes by design
+(that's why it needs a 49:1 transformer); this tool is for avoiding them.
 
 ## Sibling project
 
@@ -23,170 +37,107 @@ DangerNode intentionally matches its conventions:
 
 When in doubt about a convention (file layout, test structure, naming), check
 how the sibling project does it first rather than inventing a new pattern.
-Note: `pota-wire-geometry-calc` has no `js/` folder at all — it's always
-been a single `index.html` with zero external script tags. DangerNode
-briefly deviated from that (a `js/physics.js` + `js/bands.js` split) and
-has since been folded back to match — see the 2026-07-28 entry below for
-why that split turned out to be a real-world liability, not just a style
-nit. Don't reintroduce a `js/`-file split without solving that problem
-first. One deliberate naming divergence: DangerNode's entry file is
-`dangernode.html`, not `index.html` — see the 2026-08-31 entry below.
+The entry file is `dangernode.html`, not `index.html` (a phone's file picker
+can't tell several `index.html`s apart). Applying that to the sibling is
+deferred debt — don't rename `pota-wire-geometry-calc/index.html` unless
+separately asked.
 
-## Current status (as of 2026-07-28)
+## Hard rules
 
-Core physics module and the full v1 UI are implemented. `dangernode.html`
-is a single self-contained file — no `js/` folder, no `<script src>` tags at
-all (see the 2026-07-28 entry below). The physics functions (n = L/hw(f)
-math, danger-zone classification) and the default US General/Extra band
-table are inline `<script>` blocks near the top of the file, both merging
-into `window.DN` the same way the UI-support functions further down do.
-Exercised by `tests/unit-physics.html` — 27/27 passing, including a
-realistic sanity check (68ft EFHW-ish wire: clean on 40m, correctly flags
-the classic 20m 2nd-harmonic node).
+- **One self-contained file. No `js/` folder, no `<script src>`, no external
+  `<link>`.** A `js/physics.js` + `js/bands.js` split once silently failed to
+  load when Chrome on Android opened the file via a file manager (`content://`
+  URI instead of `file://`): `window.DN` never populated, the init script threw,
+  and the page rendered its static shell with no values and no visible error.
+  Don't split files again without testing a raw phone file-open, not just
+  `python -m http.server`.
+- **No network dependencies.** Fonts are embedded (below). Don't add a CDN
+  link, Google Fonts `<link>`, analytics, etc.
+- **Never rewrite a number input while the user is typing in it.** Use
+  `bindNumberInput` (flag invalid, leave state alone, snap back on `change`).
+  An earlier build clamped + re-set the field on every keystroke so typing
+  "120" became 5.00 and VF "0.97" became 0.82.
+- **Validate everything read from localStorage per field** (`loadState`). A bad
+  value must fall back to that field's default, never throw during init.
+- Don't push until both test files are green (see Testing).
 
-`dangernode.html` is the full app: EFHW / Random Wire tabs, a Settings tab, the
-SVG antinode/node chart, the band verdict table, ft/m unit toggle,
-danger-zone tolerance slider, band toggle chips, the Random Wire tab's
-informational counterpoise reference (decision 5), a Quick Check panel
-(input mode 3), a Suggest Lengths panel (input mode 2 — inverse-solves
-`L = n * hw(f)` for a target band/frequency, with a one-click apply), and
-localStorage persistence of all state. UI logic lives inline in
-`dangernode.html`'s own `<script>` tag, in the same single file as the physics
-and band-table code above it; a handful of pure UI-support functions
-(`sweepCurve`, `verdictSegments`, `overallVerdict`, `suggestLengths`) are
-merged into `window.DN` alongside the physics functions so they're testable
-the same way.
+## Current status (as of 2026-11-07, v0.2.0 build 5)
 
-Post-playtest revisions (2026-07-16), driven by real usage feedback:
-- **Chart curve is now smooth, not sawtooth.** `sweepCurve` used to plot
-  `distanceToNearestEven(n)` directly — a triangle wave, which for a wire
-  with several half-waves across the HF spectrum rendered as jagged
-  zigzags. It now plots `|sin(n*pi/2)|` instead (same 0-at-node/1-at-antinode
-  semantics, smooth curve, matches the classic standing-wave-envelope
-  picture). Classification math (`distanceToNearestEven`/`classifyDistance`,
-  used for verdicts/tables/tolerance) is untouched — only the chart's
-  display curve changed.
-- **Danger zones are vertical chart shading, not horizontal.** New
-  `verdictSegments()` walks a wire's frequency range and returns contiguous
-  good/marginal/danger segments. With 1 active wire, drawn as full-height
-  background rects. With 2-3 wires (decision 3), full-height rects would
-  overlap into noise, so each wire instead gets a thin danger-only tick row
-  in its own color along the bottom of the chart.
-- **VF is now a global setting, not per-wire** — decision 4 amended, see
-  docs/spec.md. A new Settings tab holds one global VF slider+number
-  (`#globalVfSlider`/`#globalVfNumber`); wire cards now only have length.
-  Every consumer that used to read `w.vf` (chart, table, counterpoise,
-  suggest-lengths) now reads `state.globalVf`. `state.view` ('calc' |
-  'settings') is separate from `state.tab` ('efhw' | 'random') so switching
-  to Settings doesn't lose which calc tab you were on.
-- **Slider + number pairing.** Wire length and global VF are each a
-  `<input type="range">` paired with a synced `<input type="number">`
-  (`.dn-field-paired` CSS) — sliders alone couldn't hit exact values. Quick
-  Check already had number-only inputs and is unchanged.
+Implemented, single file `dangernode.html`:
+- One **Calculator** view plus a **Settings** view (the old EFHW / Random Wire
+  tabs were merged — an EFHW is just a wire that's a half-wave multiple on its
+  lowest band).
+- **Chart bounded to the selected bands**: one equal-width panel per band with
+  its own frequency scale (full-HF scale made 30m ~1px wide). Per panel: smooth
+  `|cos(nπ)|` envelope (High Z at integer n), red/amber vertical shading, band
+  name + edge frequencies. With 2–3 wires, shading becomes a thin per-wire
+  danger tick row instead.
+- **"Show half-wave multiples" checkbox** (default on): dashed line at each
+  `f = k·492·VF/L` inside a band (labeled `n=k` for one wire); a triangle on the
+  panel edge when a multiple is just outside a band but its red zone reaches in.
+- Band verdict table, ft/m toggle, 1–3 comparison wires (slider + number box
+  each), band chips, tolerance slider (0.01–0.20) + "Tuner Comfort Zone" presets
+  (0.15 / 0.07 / 0.03 — **placeholder estimates**, not derived from any
+  impedance model; the author plans to replace them with NanoVNA-measured
+  values), global VF in Settings (Quick Check follows it), Quick Check,
+  Suggest Lengths (single-frequency solve for half-integer n; "Apply" loads
+  wire 1), counterpoise reference (informational, always shown),
+  localStorage persistence (key `dangernode-state-v2`).
+- Out-of-range / unparseable entries in any number field are flagged red and
+  ignored (results show a hint or "—", never `Infinity`/`NaN`/negative lengths).
+- IBM Plex embedded as base64 woff2 (see below) — zero requests, verified.
 
-Further revisions (2026-07-28), from a first round of real mobile testing:
-- **Band region markers on the chart were nearly invisible** (7% opacity
-  fill, 18% opacity border) — fixed by inverting the approach: since these
-  rects paint on top of the danger/marginal/good shading, a strong fill
-  would wash out that more important signal, so the fill stays minimal and
-  the boundary is instead carried by a bright dashed stroke + bold label.
-- **Danger-zone tolerance moved from the calc-tab left column into the
-  Settings tab**, next to global VF — same `#toleranceSlider`/`#lblTolerance`
-  IDs, just relocated markup, no JS binding changes.
-- **Y axis relabeled "High Z" / "Low Z"** instead of unitless `0`/`1` ticks
-  and a "node/antinode" title — names what the axis means (feedpoint
-  impedance character) without implying a real measured value. Chart's
-  left margin widened 34→42px so the longer labels don't clip.
-- **`index.html` is now a single file with zero `<script src>` tags** —
-  the `js/physics.js` + `js/bands.js` split (present since the very first
-  commit) turned out to be a real mobile-reliability bug, not just a style
-  choice: opening the file via Chrome on Android (via a file manager's
-  "open with," which can hand off a `content://` URI instead of a true
-  `file://` path) silently failed to load the two sibling `<script src>`
-  files. `window.DN` never got populated, the app's own init script threw
-  immediately on the first `DN.BANDS`/`DN.hwFt` reference, and the page
-  rendered its static shell with *no dynamic values anywhere* — no console
-  visible to the user, so it just looked broken with no explanation. Fixed
-  by inlining both files' contents directly into `index.html`'s `<script>`
-  block (three back-to-back IIFEs: physics, bands, app — same
-  `window.DN` merge pattern as before, zero logic changes) and deleting
-  the `js/` folder entirely. This also re-aligns with
-  `pota-wire-geometry-calc`'s actual convention (see "Sibling project"
-  above) and with the original spec's "single HTML/JS bundle" field-
-  usability requirement, which the `js/`-file split had quietly drifted
-  away from. **Don't split JS into separate files again** without solving
-  the mobile file:// problem first — test on an actual phone via a raw
-  file open, not just a local `python -m http.server`, before assuming a
-  multi-file layout is safe.
-- **"Tuner Comfort Zone" radio group added to the Settings tab** (three
-  options, next to the tolerance slider): "No tuner (must be resonant)" /
-  "Basic tuner" / "Wide-range tuner (G90-class)". These are pure UI
-  shortcuts that call the same `setTolerance()` the slider itself uses —
-  no new calculation, no change to shading/verdict logic. Current values
-  are **placeholder estimates**, explicitly not derived from any
-  impedance model (see decision 2 addendum, docs/spec.md) — the user
-  plans to cross-check a few lengths against a NanoVNA and their actual
-  tuner's match range and report back real numbers.
-  `syncTolerancePresetRadios()` keeps the radios in sync in both
-  directions: clicking a preset moves the slider, and dragging the
-  slider to a value that doesn't exactly match a preset un-checks all
-  three (verified via direct DOM manipulation, including a reload to
-  confirm the checked state restores correctly from localStorage).
-  **Direction bug caught and fixed same day**: the initial mapping
-  (No tuner=0.03, Wide-range=0.18) had it backwards. `tolerance` sets the
-  radius of the danger zone around each node (`classifyDistance`: `dist <
-  tolerance` → danger), so a *larger* tolerance means a *wider* red zone.
-  A tuner-less setup can't compensate for any real mismatch, so nearly
-  everything except true resonance is risky for it — that's a wide danger
-  zone, i.e. a *large* tolerance. A wide-range tuner absorbs most
-  mismatches and only fails very close to the actual node — a narrow
-  danger zone, i.e. a *small* tolerance. Corrected mapping: No tuner=0.18,
-  Basic=0.07 (unchanged), Wide-range=0.03.
+**Not built**: offline PWA shell (manifest + service worker). Note service
+workers only run over https/localhost, **not** `file://` / `content://`, so the
+PWA path means hosting (e.g. GitHub Pages) and is separate from the "copy one
+file to the phone" path. Also known gaps: much text is 9–12px dim khaki (weak for
+direct sunlight, and iOS zooms inputs under 16px); Suggest Lengths solves one
+frequency, not a whole band; a scan-all-lengths ranking across selected bands is
+the obvious next feature.
 
-Renamed `index.html` → `dangernode.html` (2026-08-31): the generic
-filename was a real problem for offline field use — copying multiple
-single-page tools onto a phone for zero-connectivity access means several
-files all called `index.html` sitting in different folders, which is hard
-to tell apart in a phone's file picker/recents view even with folders in
-place. Every reference above written before this date still says
-`index.html` because that was its name at the time; anything describing
-the *current* file uses `dangernode.html`. Test files
-(`tests/unit-physics.html`, `tests/system-app.html`) and their iframe
-`src` were updated to match — nothing else changed. **This convention
-(project-named entry file instead of `index.html`) is intended to apply
-to sibling projects too eventually, but that's deferred debt — don't go
-rename `pota-wire-geometry-calc/index.html` unless separately asked.**
+## Embedded fonts — how to regenerate
 
-`tests/system-app.html` (DOM-driving system tests, mirroring the sibling
-project's file of the same name) has new tests for the Settings tab and the
-paired slider/number inputs, and the old `[data-wire-vf]` references were
-fixed to use the new global control. It has still never run to green *inside
-this dev environment* — the in-house browser preview tool's iframe
-instrumentation reliably hangs/reload-loops when synthetic
-click()/dispatchEvent() calls are driven into a nested iframe (re-confirmed
-2026-07-16: a plain `navigate` to this file timed out after 300s; not an app
-bug — no `location`/`reload` calls anywhere in `index.html`, and
-`tests/unit-physics.html`'s iframe, which never dispatches synthetic events,
-runs clean every time in the same tool). Expected to run fine in a normal
-browser or a plain `python -m http.server`. **If you hit this again, don't
-sink time into it** — verify functionally by driving the real `index.html`
-directly instead (via a javascript_tool DOM inspection, not click
-simulation — this is how the 2026-07-16 fixes above were actually verified:
-checked `svg path`/`rect` counts and contents, toggled the Settings tab and
-read `style.display`, set `.value` + dispatched `input` on the paired
-number/slider inputs and read the other side back, added a wire and
-confirmed no stray `vf` key).
-
-**Not yet built**: offline PWA shell (manifest + service worker) — listed
-under field-usability requirements in docs/spec.md but out of scope for this
-pass, which focused on the UI itself.
+`<style id="dnFonts">` at the top of `dangernode.html` holds five Latin-subset
+woff2 faces as base64: IBM Plex Mono 400/600, IBM Plex Sans 400, IBM Plex Sans
+Condensed 600/700 (those are exactly the weights the CSS uses; add one only if
+you use it). Source: `@fontsource/ibm-plex-{mono,sans,sans-condensed}@5.3.0`,
+`files/<name>-latin-<weight>-normal.woff2` (SIL OFL 1.1). To rebuild: `npm i`
+those packages in a scratch dir, base64 each file, emit
+`@font-face{font-family:'…';font-weight:…;src:url(data:font/woff2;base64,…) format('woff2')}`.
+✓ ▲ ✕ glyphs aren't in Plex and fall back to system fonts (fine).
 
 ## Testing
 
 No build step. Serve the repo root (`python -m http.server`) and open
-`tests/unit-physics.html`, or open it directly via `file://` (iframe
-same-origin restrictions may bite depending on browser). Results render to
-the page; `window.__TEST_SUMMARY__` gives a machine-readable `{total,
-passed, failed}` for automated checking. Don't push to GitHub until this is
-green — see git log for the standing convention on this project (established
-2026-07-09).
+`tests/unit-physics.html` (41 tests: the math) and `tests/system-app.html`
+(39 tests: drives the real DOM in an iframe — typing keystroke-by-keystroke,
+chips, wires, persistence, corrupt state, no-external-requests). Results render
+to the page; `window.__TEST_SUMMARY__` is `{total, passed, failed}` for
+automation (e.g. Playwright `waitForFunction`). Both are green as of 2026-11-07.
+
+**The system test used to "hang" and was blamed on the preview tool — it was a
+real test bug.** The page's iframe `load` handler fired again on every
+`location.reload()` inside the persistence tests, wiping storage and re-running
+the whole suite forever. It's now `{ once: true }`; keep it that way.
+
+Test helper to remember: `typeInto(el, '120')` dispatches one `input` event per
+prefix, like a real user. Setting `.value = '120'` in one shot hides
+keystroke-order bugs. (Typing "300" also passes through a valid "30", so use a
+single-shot value to test out-of-range paste.)
+
+## History worth remembering
+
+- 2026-07-09: don't push to GitHub until tests are green (standing convention).
+- 2026-07-16: chart curve made smooth (display-only) while classification kept
+  on the distance metric; VF made global (decision 4, spec); slider + number
+  pairing.
+- 2026-07-28: `js/` split folded into one file (mobile `content://` failure);
+  tolerance moved to Settings; Y axis labeled High Z / Low Z; Tuner Comfort Zone
+  presets added (direction bug caught: larger tolerance = wider red zone = what
+  a tuner-less setup needs).
+- 2026-08-31: `index.html` → `dangernode.html`.
+- 2026-11-07: **physics polarity flipped** (integer n = danger; see top), EFHW
+  tab dropped, chart bounded to selected bands + half-wave markers, fonts
+  embedded, input-entry/validation bugs fixed, tolerance range and presets
+  rescaled for the 0–0.5 metric, Quick Check VF made global, storage key bumped
+  to `-v2` (old saves ignored), system tests now run and pass.

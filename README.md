@@ -2,13 +2,15 @@
 
 Know your antinodes before you cut the wire.
 
-A browser tool for end-fed wire antennas (EFHW and random wire) that shows
-where along the ham bands a given wire length's feedpoint will land on a
-voltage antinode (good match) vs. a current antinode/node (poor match) — so
-you can pick a length, or a switched-length scheme, before you're standing in
-a field with a NanoVNA.
+A browser tool for end-fed random-wire antennas that shows which wire
+lengths put a **half-wave multiple** — where the feedpoint is high-impedance
+and hard for a tuner to match — inside the bands you plan to work. Pick the
+bands, set a length, and the chart zooms to just those bands and marks the
+danger zones, so you can choose a length (or a switched-length scheme)
+before you're standing in a field with a NanoVNA.
 
-Offline-first PWA, no backend, no login, no framework. Static HTML/CSS/JS.
+Offline-first, no backend, no login, no framework, no network requests —
+one static HTML file with the fonts embedded.
 
 See [docs/spec.md](docs/spec.md) for the full design spec.
 
@@ -21,16 +23,21 @@ you need if you're copying it onto a phone for offline field use.
 
 ## Status
 
-Core physics module (inlined in `dangernode.html`'s own `<script>` — see
-CLAUDE.md for why) plus the full v1
-UI — tabs, a Settings tab (global VF), the live SVG antinode/node chart
-with vertical danger-zone shading, wire-length/tolerance sliders (each
-paired with a synced number input), band toggle chips, Quick Check,
-Suggest Lengths, counterpoise reference, unit conversion, localStorage
-persistence — are implemented, covered by `tests/unit-physics.html`
-(27/27 passing). See [CLAUDE.md](CLAUDE.md) for the current-status detail
-and [docs/spec.md](docs/spec.md) for the full spec.
+v0.2.0. One calculator view with a band-bounded antinode/node chart (a
+panel per selected band, red/amber danger shading, optional half-wave
+multiple markers), band verdict table, up to three comparison wires, a
+Settings tab (global VF, danger-zone tolerance, tuner presets), Quick
+Check, Suggest Lengths, a counterpoise reference, ft/m units and
+localStorage persistence. Covered by `tests/unit-physics.html` (41 tests)
+and `tests/system-app.html` (39 tests) — both passing; serve the repo with
+`python -m http.server` and open them. Not yet built: a PWA manifest and
+service worker. See [CLAUDE.md](CLAUDE.md) for current-status detail.
+
+This is a first-order model (open-wire standing waves) for deciding which
+lengths to avoid; it doesn't replace measuring with a NanoVNA, and the
+tuner-comfort presets are placeholder estimates.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE). Embedded IBM Plex fonts are under the SIL
+Open Font License 1.1.
