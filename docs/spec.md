@@ -183,18 +183,21 @@ need to chase counterpoise-coupling fidelity to match them — a labeled
 
 ## Output / visualization
 **The chart is the app, not a secondary view.** It is one continuous
-**1.8–29.7 MHz sweep** with the user's selected bands outlined on it, so a
-wire's *whole* pattern is visible at once: each hump of the envelope is one
-half-wave, the high-Z peaks line up with the half-wave multiples, and you can
-see how a length's multiples relate across bands and harmonics.
+frequency sweep from **1 MHz up to 2 MHz past the highest selected band's
+upper edge** (`DN.chartRange`), with the user's selected bands outlined on it.
+The wire's *whole* pattern up to there is visible at once: each hump of the
+envelope is one half-wave, the high-Z peaks line up with the half-wave
+multiples, and you can see how a length's multiples relate across bands and
+harmonics. Selecting only low bands shortens the axis (e.g. 160m + 80m → 1–6
+MHz), so there is no wasted width on HF the user won't work.
 
-*Tried and reverted (2026-11-07):* bounding the axis to the selected bands as
-equal-width side-by-side panels. It made each band legible (at full HF scale
-30m is ~1px wide) but destroyed the whole-length picture that makes the
-relationships easy to see — in hands-on testing the continuous sweep was
-clearly the better UX. Narrow bands are instead kept visible by a 4px minimum
-outline width. Don't re-attempt the panel layout without a way to keep the
-overall envelope in view.
+*Tried and reverted (2026-11-07):* splitting the axis into equal-width
+side-by-side panels, one per selected band. It made each band legible (at full
+HF scale 30m is ~1px wide) but destroyed the whole-length picture that makes
+the relationships easy to see — hands-on testing showed the continuous sweep
+was clearly the better UX. Narrow bands are instead kept visible by a 4px
+minimum outline width, and the axis is trimmed from the top. Don't re-attempt
+the panel layout without a way to keep the overall envelope in view.
 
 The chart shows:
 - the wire's envelope curve (`|cos(nπ)|`, High Z at top / Low Z at bottom);
@@ -202,7 +205,7 @@ The chart shows:
 - selected bands as bright dashed outlines with the band name above the plot
   (low-opacity fill, so it doesn't wash out the risk shading);
 - optionally (checkbox, on by default) **half-wave multiples** as dashed
-  vertical lines at `f = k·492·VF/L` across the whole axis (labeled `n=k` for
+  vertical lines at `f = k·492·VF/L` across the whole displayed axis (labeled `n=k` for
   a single wire) — the exact center of each red zone.
 
 Inputs are adjustable directly against the chart:

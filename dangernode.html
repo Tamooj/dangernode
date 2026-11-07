@@ -506,7 +506,7 @@
       <div class="dn-chart-box">
         <svg id="dnChart" viewBox="0 0 760 340" style="width:100%;height:auto;"></svg>
         <div class="dn-chart-legend" id="dnChartLegend"></div>
-        <div class="dn-hint">Full 1.8–29.7 MHz sweep for the wire's whole pattern; dashed outlines mark your selected bands.</div>
+        <div class="dn-hint">Axis runs from 1 MHz to 2 MHz above your highest selected band, so the wire's whole pattern stays in view; dashed outlines mark your selected bands.</div>
       </div>
 
       <div class="dn-panel">
@@ -667,8 +667,8 @@
 })(window);
 
 (function(){
-  const APP_VERSION = 'v0.2.1';
-  const APP_BUILD = 6;
+  const APP_VERSION = 'v0.2.2';
+  const APP_BUILD = 7;
 
   // ---------- Pure helpers, merged into window.DN so tests/*.html can load
   // the real dangernode.html in a hidden iframe and exercise these directly,
@@ -738,7 +738,18 @@
     return out;
   }
 
-  window.DN = Object.assign(window.DN || {}, { sweepCurve, verdictSegments, overallVerdict, suggestLengths });
+  // Chart x-axis range: from 1 MHz up to 2 MHz past the highest selected
+  // band's upper edge, so the axis stays continuous (the whole wire pattern
+  // is visible) but doesn't waste width on HF above anything the user plans
+  // to work.
+  function chartRange(bands, padMHz, fMinMHz) {
+    padMHz = padMHz === undefined ? 2 : padMHz;
+    fMinMHz = fMinMHz === undefined ? 1 : fMinMHz;
+    const top = bands.reduce((m, b) => Math.max(m, b.highMHz), 0);
+    return { fMin: fMinMHz, fMax: (top || 29.7) + padMHz };
+  }
+
+  window.DN = Object.assign(window.DN || {}, { sweepCurve, verdictSegments, overallVerdict, suggestLengths, chartRange });
 
   // ---------- App state ----------
   const STORAGE_KEY = 'dangernode-state-v2';
@@ -1014,34 +1025,43 @@
   // touches an input's own DOM node, so drags don't jank/lose focus). ----------
   const SVG_MONO = "'IBM Plex Mono', monospace";
 
-  // The x axis is one continuous 1.8-29.7 MHz sweep, so a length's whole
-  // pattern — how its half-wave multiples and danger zones relate to each
-  // other across bands and harmonics — stays visible at once. (An attempt to
-  // split the chart into one zoomed panel per selected band was reverted:
-  // it made each band legible but destroyed that whole-length picture.)
-  // Selected bands are outlined on the axis rather than being the axis.
-  function freqToX(f, plot){ return plot.marginL + (f - FREQ_MIN) / (FREQ_MAX - FREQ_MIN) * plot.w; }
+  // The x axis is one continuous sweep from 1 MHz to 2 MHz past the highest
+  // selected band (DN.chartRange), so a length's whole pattern — how its
+  // half-wave multiples and danger zones relate to each other across bands
+  // and harmonics — stays visible at once. (An attempt to split the chart
+  // into one zoomed panel per selected band was reverted: it made each band
+  // legible but destroyed that whole-length picture.) Selected bands are
+  // outlined on the axis rather than being the axis.
+  function freqToX(f, plot){ return plot.marginL + (f - plot.fMin) / (plot.fMax - plot.fMin) * plot.w; }
   function envToY(e, plot){ return plot.marginT + plot.h - e * plot.h; }
+  // Smallest "nice" gridline step that keeps the axis to <= ~10 labels.
+  function niceStep(span){
+    return [0.5, 1, 2, 5, 10].find(s => span / s <= 10) || 10;
+  }
+  const fmtTick = f => (Math.abs(f - Math.round(f)) < 1e-9 ? String(Math.round(f)) : f.toFixed(1));
 
   function renderChart(){
     const svg = document.getElementById('dnChart');
     const W = 760, H = 340, marginL = 42, marginR = 14, marginT = 28, marginB = 34;
     const tickH = 6; // per-wire danger tick row height when comparing >1 wire
-    const plot = { marginL, marginT, w: W - marginL - marginR, h: H - marginT - marginB };
+    const range = DN.chartRange(activeBandObjs());
+    const plot = { marginL, marginT, w: W - marginL - marginR, h: H - marginT - marginB, fMin: range.fMin, fMax: range.fMax };
+    const span = plot.fMax - plot.fMin;
     const wires = activeWires();
     const tol = state.tolerance;
     const vf = state.globalVf;
     const SEG_COLOR = { danger: 'rgba(217,99,74,0.30)', marginal: 'rgba(255,167,38,0.18)', good: null };
-    // 1500 samples keeps the narrowest possible danger zone (tol 0.01 on a
-    // 200 ft wire is ~0.05 MHz wide) wider than one sample step (~0.02 MHz).
-    const SHADE_STEPS = 1500;
+    // Sample at ~0.015 MHz so the narrowest possible danger zone (tol 0.01
+    // on a 200 ft wire is ~0.05 MHz wide) is never narrower than a step.
+    const shadeSteps = Math.min(3000, Math.max(200, Math.ceil(span / 0.015)));
+    const curveSteps = Math.min(700, Math.max(200, Math.ceil(span / 0.05)));
 
     let svgHtml = '';
 
     if (wires.length === 1) {
       // Single wire: full-height vertical shading, danger + marginal both
       // visible — no overlap to worry about.
-      DN.verdictSegments(wires[0].lengthFt, vf, FREQ_MIN, FREQ_MAX, tol, SHADE_STEPS).forEach(s => {
+      DN.verdictSegments(wires[0].lengthFt, vf, plot.fMin, plot.fMax, tol, shadeSteps).forEach(s => {
         const color = SEG_COLOR[s.verdict];
         if (!color) return;
         const x0 = freqToX(s.f0, plot), x1 = freqToX(s.f1, plot);
@@ -1053,7 +1073,7 @@
       // (in its own color) stacked along the bottom instead.
       wires.forEach((w, i) => {
         const rowY = plot.marginT + plot.h - tickH * (wires.length - i);
-        DN.verdictSegments(w.lengthFt, vf, FREQ_MIN, FREQ_MAX, tol, SHADE_STEPS).filter(s => s.verdict === 'danger').forEach(s => {
+        DN.verdictSegments(w.lengthFt, vf, plot.fMin, plot.fMax, tol, shadeSteps).filter(s => s.verdict === 'danger').forEach(s => {
           const x0 = freqToX(s.f0, plot), x1 = freqToX(s.f1, plot);
           svgHtml += `<rect x="${x0}" y="${rowY}" width="${Math.max(1, x1 - x0)}" height="${tickH}" fill="${WIRE_COLORS[i]}" opacity="0.7"/>`;
         });
@@ -1061,11 +1081,11 @@
     }
 
     // Selected-band outlines + labels (labels sit above the plot so the
-    // curve peaks and marker lines don't strike through them). Fill stays near-zero on purpose —
-    // these rects paint on top of the danger/marginal shading, and a strong
-    // fill would wash out that more important color signal. The boundary is
-    // carried by a bright dashed stroke + bold label instead. Min width 4px
-    // so 30m/17m/12m (50-100 kHz) don't collapse to a hairline.
+    // curve peaks and marker lines don't strike through them). Fill stays
+    // near-zero on purpose — these rects paint on top of the danger/marginal
+    // shading, and a strong fill would wash out that more important color
+    // signal. The boundary is carried by a bright dashed stroke instead.
+    // Min width 4px so 30m/17m/12m (50-100 kHz) don't collapse to a hairline.
     activeBandObjs().forEach(b => {
       const x0 = freqToX(b.lowMHz, plot), x1 = freqToX(b.highMHz, plot);
       const w = Math.max(4, x1 - x0), cx = (x0 + x1) / 2, bx = cx - w / 2;
@@ -1076,10 +1096,11 @@
     // Frequency axis line + gridline labels.
     const axisY = envToY(0, plot);
     svgHtml += `<line x1="${marginL}" y1="${axisY}" x2="${W - marginR}" y2="${axisY}" stroke="#3a4238" stroke-width="1"/>`;
-    for (let f = 5; f < FREQ_MAX; f += 5) {
+    const step = niceStep(span);
+    for (let f = Math.ceil((plot.fMin + 1e-9) / step) * step; f < plot.fMax - 1e-9; f += step) {
       const x = freqToX(f, plot);
       svgHtml += `<line x1="${x}" y1="${plot.marginT}" x2="${x}" y2="${axisY}" stroke="#2a3128" stroke-width="1"/>`;
-      svgHtml += `<text x="${x}" y="${H - marginB + 14}" font-size="9" fill="#8a8168" font-family="${SVG_MONO}" text-anchor="middle">${f}</text>`;
+      svgHtml += `<text x="${x}" y="${H - marginB + 14}" font-size="9" fill="#8a8168" font-family="${SVG_MONO}" text-anchor="middle">${fmtTick(f)}</text>`;
     }
     svgHtml += `<text x="${W - marginR}" y="${H - 6}" font-size="9" fill="#8a8168" font-family="${SVG_MONO}" text-anchor="end">MHz</text>`;
     svgHtml += `<text x="${marginL - 6}" y="${envToY(0, plot) + 3}" font-size="9" fill="#8a8168" font-family="${SVG_MONO}" text-anchor="end">Low Z</text>`;
@@ -1089,8 +1110,8 @@
     // Labeled n=k for a single wire when the lines are far enough apart.
     if (state.showHalfWaves) {
       wires.forEach((w, i) => {
-        const hs = DN.halfWaveFreqs(w.lengthFt, vf, FREQ_MIN, FREQ_MAX);
-        const spacingPx = (492 * vf / w.lengthFt) / (FREQ_MAX - FREQ_MIN) * plot.w;
+        const hs = DN.halfWaveFreqs(w.lengthFt, vf, plot.fMin, plot.fMax);
+        const spacingPx = (492 * vf / w.lengthFt) / span * plot.w;
         hs.forEach(hw => {
           const x = freqToX(hw.f, plot);
           svgHtml += `<line x1="${x}" y1="${plot.marginT}" x2="${x}" y2="${axisY}" stroke="${WIRE_COLORS[i]}" stroke-width="1.5" stroke-dasharray="4,3"/>`;
@@ -1105,7 +1126,7 @@
 
     // Per-wire envelope curves.
     wires.forEach((w, i) => {
-      const pts = DN.sweepCurve(w.lengthFt, vf, FREQ_MIN, FREQ_MAX, 600);
+      const pts = DN.sweepCurve(w.lengthFt, vf, plot.fMin, plot.fMax, curveSteps);
       const path = pts.map((p, idx) => `${idx === 0 ? 'M' : 'L'}${freqToX(p.f, plot).toFixed(2)},${envToY(p.envelope, plot).toFixed(2)}`).join(' ');
       svgHtml += `<path d="${path}" fill="none" stroke="${WIRE_COLORS[i]}" stroke-width="2"/>`;
     });

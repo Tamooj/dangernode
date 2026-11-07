@@ -146,6 +146,28 @@
         });
       });
 
+      suite('chartRange — x axis runs 1 MHz to 2 MHz past the highest selected band');
+      test('all default bands: 1 .. 31.7 MHz (10m top edge 29.7 + 2)', () => {
+        const r = DN.chartRange(DN.BANDS);
+        assert.close(r.fMin, 1, 1e-9);
+        assert.close(r.fMax, 31.7, 1e-9);
+      });
+      test('only 40m selected: 1 .. 9.3 MHz', () => {
+        const r = DN.chartRange([DN.BANDS.find(b => b.name === '40m')]);
+        assert.close(r.fMax, 9.3, 1e-9);
+      });
+      test('only 160m selected: 1 .. 4 MHz', () => {
+        const r = DN.chartRange([DN.BANDS.find(b => b.name === '160m')]);
+        assert.close(r.fMax, 4, 1e-9);
+      });
+      test('the highest band wins regardless of order', () => {
+        const bands = ['20m', '80m', '15m'].map(n => DN.BANDS.find(b => b.name === n));
+        assert.close(DN.chartRange(bands).fMax, 21.45 + 2, 1e-9);
+      });
+      test('an empty selection falls back to the full HF range instead of a zero-width axis', () => {
+        assert.close(DN.chartRange([]).fMax, 31.7, 1e-9);
+      });
+
       suite('sweepCurve — UI chart sampling helper');
       test('returns steps+1 points spanning the requested frequency range', () => {
         const pts = DN.sweepCurve(68, 0.95, 1.8, 29.7, 10);

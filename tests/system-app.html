@@ -178,10 +178,21 @@
       });
 
       suite('Chart shows the whole HF sweep, with selected bands outlined');
-      test('no per-band panels — one continuous axis labeled across the full range', () => {
+      test('no per-band panels — one continuous axis labeled across the range', () => {
         assert.equal(doc.querySelectorAll('#dnChart rect[fill="#171b17"]').length, 0, 'per-band panels were reverted');
         const labels = Array.from(doc.querySelectorAll('#dnChart text')).map(t => t.textContent);
-        ['5', '10', '15', '20', '25', 'MHz'].forEach(l => assert.isTrue(labels.includes(l), `expected axis label "${l}"`));
+        ['5', '10', '15', '20', '25', '30', 'MHz'].forEach(l => assert.isTrue(labels.includes(l), `expected axis label "${l}"`));
+      });
+      test('the axis ends 2 MHz above the highest selected band, not at the full HF limit', () => {
+        // Keep only 160m + 40m: axis is 1..9.3 MHz, so no 15/20/25/30 gridline labels.
+        const chips = Array.from(doc.querySelectorAll('#bandChips .dn-chip'));
+        chips.forEach(c => { if (!['160m', '40m'].includes(c.dataset.band) && c.classList.contains('active')) c.click(); });
+        const labels = Array.from(doc.querySelectorAll('#dnChart text')).map(t => t.textContent);
+        assert.isTrue(labels.includes('5'), 'expected a 5 MHz label');
+        ['10', '15', '20', '25', '30'].forEach(l => assert.isFalse(labels.includes(l), `unexpected axis label "${l}" beyond the highest band + 2 MHz`));
+        // Re-select everything; the axis grows back.
+        chips.forEach(c => { if (!c.classList.contains('active')) c.click(); });
+        assert.isTrue(Array.from(doc.querySelectorAll('#dnChart text')).map(t => t.textContent).includes('30'));
       });
       test('every selected band gets a dashed outline and a name label', () => {
         assert.equal(doc.querySelectorAll('#dnChart rect[stroke-dasharray="3,2"]').length, 9, 'expected one outline per active band (all 9 by default)');
@@ -204,12 +215,13 @@
 
       suite('Half-wave multiple markers');
       test('checkbox on: one dashed line per half-wave multiple across the whole axis; off: none', () => {
-        // 68ft @ VF 0.95: multiples at ~6.87, 13.75, 20.62, 27.49 MHz — all outside the selected
-        // bands' edges or near them, and all must be drawn since the axis is the full sweep.
+        // 68ft @ VF 0.95: multiples at ~6.87, 13.75, 20.62, 27.49 MHz — all must be drawn,
+        // including ones that fall outside the selected bands.
         setSlider(doc, '[data-wire-len="0"]', 68);
         const box = doc.getElementById('showHalfWaves');
         if (!box.checked) { box.checked = true; box.dispatchEvent(new Event('change', { bubbles: true })); }
-        const expected = win.DN.halfWaveFreqs(68, 0.95, 1.8, 29.7).length;
+        const r = win.DN.chartRange(win.DN.BANDS);
+        const expected = win.DN.halfWaveFreqs(68, 0.95, r.fMin, r.fMax).length;
         assert.equal(expected, 4);
         assert.equal(doc.querySelectorAll('#dnChart line[stroke-dasharray="4,3"]').length, expected);
         const labels = Array.from(doc.querySelectorAll('#dnChart text')).map(t => t.textContent);

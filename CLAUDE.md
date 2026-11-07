@@ -61,19 +61,21 @@ separately asked.
   value must fall back to that field's default, never throw during init.
 - Don't push until both test files are green (see Testing).
 
-## Current status (as of 2026-11-07, v0.2.1 build 6)
+## Current status (as of 2026-11-07, v0.2.2 build 7)
 
 Implemented, single file `dangernode.html`:
 - One **Calculator** view plus a **Settings** view (the old EFHW / Random Wire
   tabs were merged — an EFHW is just a wire that's a half-wave multiple on its
   lowest band).
-- **Chart is one continuous 1.8–29.7 MHz sweep** (so the whole length's pattern
-  is visible at once), with selected bands outlined (bright dashed stroke, 4px
-  min width, name label above the plot). Smooth `|cos(nπ)|` envelope (High Z at
-  integer n), red/amber vertical shading; with 2–3 wires the shading becomes a
-  thin per-wire danger tick row instead. **Don't bound the axis to the selected
-  bands / split it into per-band panels again** — tried 2026-11-07 and reverted:
-  each band was legible but the whole-length relationships were lost.
+- **Chart is one continuous sweep from 1 MHz to 2 MHz above the highest selected
+  band** (`DN.chartRange`; all bands → 1–31.7, 160m+80m → 1–6) so the whole
+  length's pattern is visible at once, with selected bands outlined (bright
+  dashed stroke, 4px min width, name label above the plot). Gridline step is
+  chosen to keep ≤~10 labels. Smooth `|cos(nπ)|` envelope (High Z at integer n),
+  red/amber vertical shading; with 2–3 wires the shading becomes a thin per-wire
+  danger tick row instead. **Don't split it into per-band panels again** — tried
+  2026-11-07 and reverted: each band was legible but the whole-length
+  relationships were lost. Trimming the axis top to the highest band is fine.
 - **"Show half-wave multiples" checkbox** (default on): dashed line at each
   `f = k·492·VF/L` across the whole axis (labeled `n=k` for one wire).
 - Band verdict table, ft/m toggle, 1–3 comparison wires (slider + number box
@@ -110,8 +112,8 @@ those packages in a scratch dir, base64 each file, emit
 ## Testing
 
 No build step. Serve the repo root (`python -m http.server`) and open
-`tests/unit-physics.html` (41 tests: the math) and `tests/system-app.html`
-(41 tests: drives the real DOM in an iframe — typing keystroke-by-keystroke,
+`tests/unit-physics.html` (46 tests: the math) and `tests/system-app.html`
+(42 tests: drives the real DOM in an iframe — typing keystroke-by-keystroke,
 chips, wires, persistence, corrupt state, no-external-requests). Results render
 to the page; `window.__TEST_SUMMARY__` is `{total, passed, failed}` for
 automation (e.g. Playwright `waitForFunction`). Both are green as of 2026-11-07.
@@ -139,7 +141,8 @@ single-shot value to test out-of-range paste.)
 - 2026-08-31: `index.html` → `dangernode.html`.
 - 2026-11-07: **physics polarity flipped** (integer n = danger; see top), EFHW
   tab dropped, half-wave markers added (a per-band-panel chart was tried and
-  reverted the same day), fonts
+  reverted the same day; axis then trimmed to 1 MHz .. highest selected band + 2
+  MHz), fonts
   embedded, input-entry/validation bugs fixed, tolerance range and presets
   rescaled for the 0–0.5 metric, Quick Check VF made global, storage key bumped
   to `-v2` (old saves ignored), system tests now run and pass.
